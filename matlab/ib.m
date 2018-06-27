@@ -18,10 +18,14 @@
 % * debug (optional) = boolean which enables printing of debug outputs.
 %
 % Outputs:
-% * T = minimum sufficient statistic of X related to Y i.e. it is a
+% * Qtgx = minimum sufficient statistic of X related to Y i.e. it is a
 % compressed version of X which contains as much information about Y as
 % beta allows. This is a conditional probability distribution P(t|x) of
 % size |X| x |T|
+% * Qt = marginal distribution of T
+% * L = IB lagrangian value I(X;T) - beta*I(T;Y)
+% * Ixt = I(X;T), the horizontal coordinate of the Information Plane
+% * Iyt = I(T;Y), the vertical coordinate of the Information Plane
 
 function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon,maxIterations, debug)
     % Assign default inputs
