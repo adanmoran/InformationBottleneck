@@ -7,7 +7,8 @@
 % * Q = Column vector representing a probability distribution of size N
 %
 % Q must be positive everywhere that P is nonzero, which is required by the
-% definition of KL Divergence.
+% definition of KL Divergence. P and Q are assumed to be equal if
+% max(abs(P-Q)) < 10^-8 as this is essentially a rounding error.
 %
 % Ouutputs:
 % * Dkl = Divergence(P || Q)
@@ -27,16 +28,24 @@ function Dkl = div(P,Q)
     P = P(nzP);
     Q = Q(nzP);
     
+    % If they are within tolerance at locations where P ~= 0, the
+    % divergence is 0.
+    if max(abs(P - Q)) < 10^-8
+        Dkl = 0;
+        return;
+    end
+    
     % If Q has any zeros after the zeros of P were removed, we cannot
     % perform KL divergence
     assert(sum(Q == 0) == 0, ...
         'D-KL cannot have zeros in Q where P is nonzero');
     
-    % Compute the logarithm (base 2) of Pxy / PxPy and dot it with
-    % Pxy
+    % Compute the divergence, which is sum_x P(x)log2( P(x)/Q(x) )
     logs = log2(P ./ Q);
     Dkl = dot(logs,P);
-    % In case of rounding error, we use max to force it to zero if it's
-    % negative
-    Dkl = max(0, Dkl);
+    % If for some reason it turns out negative, we assume Q is so close to
+    % zero that Dkl must be infinity.
+    if Dkl < 0
+        Dkl = Inf;
+    end
 end

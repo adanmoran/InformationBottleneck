@@ -112,7 +112,7 @@ function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon,maxIterations, debug)
                 F, newF, (F - newF));
         end
         % The distribution has converged if the improvement is minimal
-        if F - newF < epsilon
+        if jsdiv(newQtgx.*Px,Qtgx.*Px,0.5,0.5) < epsilon%F - newF < epsilon
             converged = true;
         end
         
