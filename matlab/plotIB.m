@@ -49,21 +49,49 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
     Ix = zeros(size(betaValues));
     Iy = zeros(size(betaValues));
     
-    % Loop over each beta to compute the IB point
-    i = 1;
     % Initialize a waitbar so we can see how much this will take.
     bar = waitbar(0, '');
+    % Maximum number of iterations after we have stopped finding new
+    % minimum L values before we stop searching, for a given beta.
+    N = 50;
+    % Loop over each beta to compute the IB point
+    i = 1;
     for beta = betaValues
+        % Display the current progress
+        waitbar(i/length(betaValues),bar,...
+            sprintf('Computing IB iteration %d of %d', ...
+                i, length(betaValues)));
         % Compute the optimal point on the IB plane for this beta
         [~, ~, L, Ixt, Iyt] = ib(Pxy, beta,epsilon,maxIterations,debug);
-        % Do the same computation twice more and take the optimal one.
+        % Do the same computation  more and take the optimal one.
         % This is done to avoid local minima.
-        for j = 1:2
+        minLIteration = 1;
+        keepSearchingForMin = true;
+        % Keep searching for a minimum L depending on the criteria outlined
+        % in comments below
+        if debug
+            fprintf('-> Searching for optimal L for beta = %.3f\n',beta);
+        end
+        while keepSearchingForMin
+            % Compute a new L-value
             [~,~,newL,newIxt,newIyt] = ib(Pxy, beta,epsilon,maxIterations,false);
+            % If a new minimum was found, reset the iteration and keep
+            % searching
             if newL < L
                 Ixt = newIxt;
                 Iyt = newIyt;
                 L = newL;
+                minLIteration = 1;
+                if debug
+                    fprintf('-> Found new optimal L: %.16f\n',L);
+                end
+            else
+                minLIteration = minLIteration + 1;
+            end
+            % If we have reached our max allowable iterations, stop
+            % searching and use the current minimum.
+            if minLIteration >= N
+                keepSearchingForMin = false;
             end
         end
         % Add the IB point to the IB plane
@@ -71,10 +99,6 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
         Iy(i) = Iyt;
         % Update the index for the vectors to which we add the IB points
         i = i + 1;
-        % Display the current progress
-        waitbar(i/length(betaValues),bar,...
-            sprintf('Computing IB iteration %d of %d', ...
-                i, length(betaValues)));
     end
     % Turn off the waitbar
     close(bar);
@@ -86,5 +110,6 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
     c.Label.String = 'Beta';
     xlabel('I(X;T)');
     ylabel('I(T;Y)');
-    title('Information Bottleneck');
+    title(sprintf('Information Bottleneck for |X|=%d and |Y|=%d',...
+        size(Pxy,1),size(Pxy,2)));
 end
