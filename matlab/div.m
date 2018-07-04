@@ -8,7 +8,7 @@
 %
 % Q must be positive everywhere that P is nonzero, which is required by the
 % definition of KL Divergence. P and Q are assumed to be equal if
-% max(abs(P-Q)) < 10^-8 as this is essentially a rounding error.
+% max(abs(P-Q)) < EPS as this is essentially a rounding error.
 %
 % Ouutputs:
 % * Dkl = Divergence(P || Q)
@@ -30,7 +30,7 @@ function Dkl = div(P,Q)
     
     % If they are within tolerance at locations where P ~= 0, the
     % divergence is 0.
-    if max(abs(P - Q)) < 10^-8
+    if max(abs(P - Q)) < eps
         Dkl = 0;
         return;
     end
@@ -41,11 +41,38 @@ function Dkl = div(P,Q)
         'D-KL cannot have zeros in Q where P is nonzero');
     
     % Compute the divergence, which is sum_x P(x)log2( P(x)/Q(x) )
-    logs = log2(P ./ Q);
-    Dkl = dot(logs,P);
+    Dkl = setZero(sum(P.*log2(P./Q)));
+    % If the standard Dkl fails (i.e. is negative due to rounding error), 
+    % try alternative formulations.
+    if Dkl < 0
+        % Separate the log
+        Dkl = setZero(sum(P.*(log2(P)-log2(Q))));
+    end
+    if Dkl < 0
+        % Use a taylor expansion for log2(1 + x)
+        Dkl = setZero(sum(P.*log2p( (P-Q)./Q)));
+    end
+    if Dkl < 0
+        % Use large values of P and Q, which are floored to remove rounding
+        % error.
+        Dkl = setZero(sum(P.*log2(floor(P./eps)./floor(Q./eps))));
+    end
+    if Dkl < 0
+        % Use large values, but separate the log
+        Dkl = setZero(sum(P.* (log2(floor(P./eps)) - log2(floor(Q./eps)))));
+    end
     % If for some reason it turns out negative, we assume Q is so close to
     % zero that Dkl must be infinity.
     if Dkl < 0
         Dkl = Inf;
+    end
+end
+
+function Dkl = setZero(Dkl)
+    % If the Kullback-Leibler divergence is within eps of zero, simply
+    % assign it to zero since the distributions are basically the same.
+    Dkl = value;
+    if abs(value) < eps
+        Dkl = 0;
     end
 end
