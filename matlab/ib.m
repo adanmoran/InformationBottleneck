@@ -39,18 +39,19 @@ function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon, debug)
     assert(beta >= 0, 'Beta must be positive in the IB');
     
     % Get X's distribution
-    Px = sum(Pxy,2);
+    Px = renormalize(sum(Pxy,2));
     % |X|
-    n = size(Pxy,1);
+    n = length(Px);
     
     % Get Y's distribution as a column vector
-    Py = transpose(sum(Pxy,1));
+    Py = renormalize(transpose(sum(Pxy,1)));
     % |Y|
-    m = size(Pxy,2);
+    m = length(Py);
     
     % Compute the conditional distribution p(y|x), which is given by
     % P(x,y)/P(x)
-    Pygx = Pxy ./ Px;
+    % In case of rounding errors, we renormalize so all the row sums are 1.
+    Pygx = renormalize(Pxy ./ Px, 2);
     
     % If beta is zero, all X values are compressed to one point
     if beta == 0
@@ -73,9 +74,9 @@ function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon, debug)
     % [ P(1|1) P(2|1) ... P(k|1)
     %    ...
     %   P(1|n) P(2|n) ... P(k|n)]
-    Qtgx = rand(n);
-    % Now normalize across the rows so the row sum is 1
-    Qtgx = Qtgx ./ sum(Qtgx,2);
+    %
+    % Normalize along the rows so this becomes a conditional distribution.
+    Qtgx = renormalize(rand(n), 2);
     
     % Define a probability distribution q(t) for T, which is initialized
     % according to Bayes' rule (q(t) = sum of q(t|x)p(x))
@@ -155,11 +156,22 @@ end
 function Qt = updateQt(Px,Qtgx)
     % Note that X is on the rows of q(t|x), so we need to transpose 
     % q(t|x) to sum over X instead of T
-    Qt = Qtgx' * Px;
+    % In case of rounding errors, we renormalize the distribution.
+    Qt = renormalize(Qtgx' * Px);
 end
 
 function Qygt = updateQygt(Pxy,Qtgx,Qt)
     % Again, we need to transpose q(t|x) to sum over x when we multiply
     % q(t|x) with p(x,y)
-    Qygt = (Qtgx' * Pxy) ./ Qt;
+    % In case of rounding errors, normalize so the row sum is 1.
+    Qygt = renormalize((Qtgx' * Pxy) ./ Qt, 2);
+end
+
+function P = renormalize(P, dim)
+    % Divide P by it's sum along dimension dim.
+    % By default, the division is done by columns
+    if nargin < 2
+        dim = 1;
+    end
+    P = P ./ sum(P,dim);
 end
