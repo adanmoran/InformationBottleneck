@@ -93,7 +93,7 @@ end
 function Dkl = setZero(Dkl)
     % If the Kullback-Leibler divergence is within eps of zero, simply
     % assign it to zero since the distributions are basically the same.
-    if abs(Dkl) < eps
+    if abs(Dkl) <= eps
         Dkl = 0;
     end
 end
