@@ -6,8 +6,6 @@
 % * Pxy = Joint distribution of random variables X and Y
 % * epsilon (optional) = the convergence value for the IB functional.
 % Default value is 10^-8.
-% * maxIterations (optional) = set the maximum number of iterations until
-% convergence for the IB curve. Default is 1000.
 % * debug (optional) = print debug outputs when computing the IB
 % * betaValues (optional) = choose the beta values for which to compute the
 % IB bounds. Must be a positive range. Default is 0 : 0.01 : 10.
@@ -20,30 +18,46 @@
 % value three times and choose the distribution which has the optimal 
 % L-value.
 
-function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
+function [Ix, Iy] = plotIB(Pxy, epsilon, debug, betaValues)
+% TODO:
+% If betaValues are not given, this algorithm should compute at least 10
+% betas which produce points between 0 and I(X;Y)
+% For example, if beta were [1 2 3 4 5 10 15 20 50 100] and we did not reach
+% the point (H(X), I(X;Y)), then we would add extra betas at the end until we
+% did. On the other hand, if the jump between 1 and 2 gave an I(T;Y) that was
+% too large (more than I(X;Y)/10 ) then we would add beta in between 1 and 2
+% so that we could not have more than that much of a jump between values.
+
     % Validate final parameter
-    if nargin == 5
+    if nargin == 4
         % If beta is negative, throw an error
         if sum(betaValues < 0) > 0
             error('Beta values must be positive.');
         end
     end
     % Set default for final parameter if it wasn't given
-    if nargin < 5
+    if nargin < 4
         betaValues = 0:0.01:10;
     end
     % Set default for fourth parameter if it wasn't given
-    if nargin < 4
-        debug = false;
-    end
-    % Set default for third parameter if it wasn't given
     if nargin < 3
-        maxIterations = 1000;
+        debug = false;
     end
     % Set default for second parameter if it wasn't given
     if nargin < 2
         epsilon = 0.00000001;
     end
+    
+    % Compute the distribution of X
+    Px = sum(Pxy,2);
+    
+    % Compute the entropy of X, which is the rightmost limit of the IB
+    % curve
+    H = entropy(Px);
+    
+    % Compute the mutual information between X and Y
+    Pygx = Pxy ./ Px;
+    Ixy = mi(Pygx,Px);
         
     % Initialize variables to store positions on the IB plane
     Ix = zeros(size(betaValues));
@@ -62,7 +76,7 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
             sprintf('Computing IB iteration %d of %d', ...
                 i, length(betaValues)));
         % Compute the optimal point on the IB plane for this beta
-        [~, ~, L, Ixt, Iyt] = ib(Pxy, beta,epsilon,maxIterations,debug);
+        [~, ~, L, Ixt, Iyt] = ib(Pxy, beta,epsilon,debug);
         % Do the same computation  more and take the optimal one.
         % This is done to avoid local minima.
         minLIteration = 1;
@@ -74,7 +88,7 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
         end
         while keepSearchingForMin
             % Compute a new L-value
-            [~,~,newL,newIxt,newIyt] = ib(Pxy, beta,epsilon,maxIterations,false);
+            [~,~,newL,newIxt,newIyt] = ib(Pxy, beta,epsilon,false);
             % If a new minimum was found, reset the iteration and keep
             % searching
             if newL < L
@@ -112,4 +126,14 @@ function [Ix, Iy] = plotIB(Pxy, epsilon, maxIterations, debug, betaValues)
     ylabel('I(T;Y)');
     title(sprintf('Information Bottleneck for |X|=%d and |Y|=%d',...
         size(Pxy,1),size(Pxy,2)));
+    hold on;
+    % Plot the box within which the curve should lie, which is given by
+    % H(X) and I(X;Y)
+    plot([0,H],[Ixy,Ixy]); % I(X;Y) horizontal line
+    plot([H,H],[0,Ixy]); % H(X) vertical line
+    hold off;
+    % Plot the legend in the bottom right corner with no background or
+    % outline
+    legend({'IB','I(X;Y)','H(X)'},'Location','Southeast');
+    legend('boxoff');
 end
