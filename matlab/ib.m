@@ -13,8 +13,6 @@
 % * epsilon (optional) = error value of the IB functional. The IB
 % functional is considered "converged" when the updated value of the
 % functional stops decreasing by more than epsilon. Default value is 10^-8.
-% * maxIterations (optional) = maximum number of iterations before
-% convergence is enforced. Default is 1000.
 % * debug (optional) = boolean which enables printing of debug outputs.
 %
 % Outputs:
@@ -27,18 +25,14 @@
 % * Ixt = I(X;T), the horizontal coordinate of the Information Plane
 % * Iyt = I(T;Y), the vertical coordinate of the Information Plane
 
-function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon,maxIterations, debug)
+function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon, debug)
     % Assign default inputs
     if nargin < 2
         error('Information bottleneck requires Pxy and beta as inputs.');
     elseif nargin == 2
         epsilon = 0.00000001;
-        maxIterations = 1000;
         debug = false;
     elseif nargin == 3
-        maxIterations = 1000;
-        debug = false;
-    elseif nargin == 4
         debug = false;
     end
     % Assert beta is positive as required. 
@@ -94,6 +88,7 @@ function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon,maxIterations, debug)
 
     % Iteratively update the distributions
     N = 1;
+    maxIterations = Inf; % testing parameter
     converged = false;
     F = Inf;
     while ~converged && N < maxIterations
