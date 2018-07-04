@@ -1,9 +1,18 @@
-% x is no less than -1!!!
-function a = log2p(x)
+%% Logarithm for 1+x
+% An alternate formulation of log1p
+%
+% Inputs:
+% x = a value or vector which is positive and non-zero.
+%
+% Output:
+% L = log(1 + x) in bits
+%
+function L = log2p(x)
+    % Compute the standard logarithm if X is large enough.
     if (abs(x) > 1e-4)
-        a = log2(1 + x);
+        L = log2(1 + x);
     else
-        %a = x; this is the same as built-in log1p output
-        a = (-0.5 .* x + 1.0) .* x; % from Taylor expansion
-    end;
+        % Return the Taylor Expansion of the logarithm if X is small.
+        L = (-0.5 .* x + 1.0) .* x;
+    end
 end
