@@ -41,26 +41,8 @@ function Dkl = div(P,Q)
         'D-KL cannot have zeros in Q where P is nonzero');
     
     % Compute the divergence, which is sum_x P(x)log2( P(x)/Q(x) )
-    Dkl = setZero(sum(P.*log2(P./Q)));
-    % If the standard Dkl fails (i.e. is negative due to rounding error), 
-    % try alternative formulations.
-    if Dkl < 0
-        % Separate the log
-        Dkl = setZero(sum(P.*(log2(P)-log2(Q))));
-    end
-    if Dkl < 0
-        % Use a taylor expansion for log2(1 + x)
-        Dkl = setZero(sum(P.*log2p( (P-Q)./Q)));
-    end
-    if Dkl < 0
-        % Use large values of P and Q, which are floored to remove rounding
-        % error.
-        Dkl = setZero(sum(P.*log2(floor(P./eps)./floor(Q./eps))));
-    end
-    if Dkl < 0
-        % Use large values, but separate the log
-        Dkl = setZero(sum(P.* (log2(floor(P./eps)) - log2(floor(Q./eps)))));
-    end
+    Dkl = getKLDivergence(P,Q);
+    
     % If for some reason it turns out negative, we assume Q is so close to
     % zero that Dkl must be infinity.
     if Dkl < 0
@@ -68,11 +50,50 @@ function Dkl = div(P,Q)
     end
 end
 
+% Try various formulations of KL Divergence and take the best one.
+function Dkl = getKLDivergence(P,Q)
+    % Try the standard KL divergence
+    Dkl = setZero(dot(P, log2(P./Q)));
+    
+    % If the standard Dkl fails (i.e. is negative due to rounding error), 
+    % try alternative formulations.
+    if Dkl < 0
+        % Separate the log
+        logDiff = log2(P) - log2(Q);
+        Dkl = setZero(dot(P, logDiff));
+    end
+    if Dkl < 0
+        % Use the version of log2(1 + x) that is built-in.
+        diff = (P - Q);
+        Dkl = setZero(dot(P, log1p(diff./Q)));
+    end
+    if Dkl < 0
+        % Use a Taylor expansion for log2(1 + x)
+        diff = (P - Q);
+        Dkl = setZero(dot(P, log2p(diff./Q)));
+    end
+    if Dkl < 0
+        % Use P and Q as large as possible and floor to remove rounding
+        % errors.
+        largeP = floor(P./eps);
+        largeQ = floor(Q./eps);
+        % Perform the standard KL-Divergence with these large values.
+        Dkl = setZero(dot(P, log2(largeP./largeQ)));
+    end
+    if Dkl < 0
+        % Use large P and Q as above.
+        largeP = floor(P./eps);
+        largeQ = floor(Q./eps);
+        % Separate the log.
+        logDiff = log2(largeP) - log2(largeQ);
+        Dkl = setZero(dot(P, logDiff));
+    end
+end
+
 function Dkl = setZero(Dkl)
     % If the Kullback-Leibler divergence is within eps of zero, simply
     % assign it to zero since the distributions are basically the same.
-    Dkl = value;
-    if abs(value) < eps
+    if abs(Dkl) < eps
         Dkl = 0;
     end
 end
