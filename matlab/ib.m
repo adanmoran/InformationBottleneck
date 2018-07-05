@@ -107,8 +107,12 @@ function [Qtgx, Qt, L, Ixt, Iyt] = ib(Pxy,beta,epsilon, debug)
             fprintf('F is %.8f, newF is %.8f, diff is %.9f\n',...
                 F, newF, (F - newF));
         end
+        % Compute the joint distribution of T and X for comparison
+        newQtx = renormalize(newQtgx.*Px);
+        oldQtx = renormalize(Qtgx.*Px);
+        
         % The distribution has converged if the improvement is minimal
-        if jsdiv(newQtgx.*Px,Qtgx.*Px,0.5,0.5) < epsilon%F - newF < epsilon
+        if jsdiv(newQtx, oldQtx, 0.5, 0.5) < epsilon
             converged = true;
         end
         
@@ -167,11 +171,18 @@ function Qygt = updateQygt(Pxy,Qtgx,Qt)
     Qygt = renormalize((Qtgx' * Pxy) ./ Qt, 2);
 end
 
-function P = renormalize(P, dim)
+function P1 = renormalize(P, dim)
     % Divide P by it's sum along dimension dim.
     % By default, the division is done by columns
     if nargin < 2
         dim = 1;
     end
-    P = P ./ sum(P,dim);
+    P1 = P;
+    % Set very small values of P1 to zero
+    zeroTolerance = 10^-15;
+    smallValues = (P1 - zeroTolerance) < 0;
+    P1(smallValues) = 0;
+    
+    % Re-normalize
+    P1 = P1 ./ sum(P1,dim);
 end
