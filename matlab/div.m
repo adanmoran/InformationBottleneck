@@ -24,9 +24,16 @@ function Dkl = div(P,Q)
         'D-KL: Distributions must be the same size');
     
     % Find zeros of the distributions and remove any zero elements of P
-    nzP = P ~= 0;
+    nzP = P > eps;
     P = P(nzP);
     Q = Q(nzP);
+    
+    % If there are elements of Q that are zero, then the divergence
+    % is infinite.
+    if sum(Q < eps) ~= 0
+        Dkl = Inf;
+        return;
+    end
     
     % If they are within tolerance at locations where P ~= 0, the
     % divergence is 0.
@@ -35,19 +42,8 @@ function Dkl = div(P,Q)
         return;
     end
     
-    % If Q has any zeros after the zeros of P were removed, we cannot
-    % perform KL divergence
-    assert(sum(Q == 0) == 0, ...
-        'D-KL cannot have zeros in Q where P is nonzero');
-    
     % Compute the divergence, which is sum_x P(x)log2( P(x)/Q(x) )
     Dkl = getKLDivergence(P,Q);
-    
-    % If for some reason it turns out negative, we assume Q is so close to
-    % zero that Dkl must be infinity.
-    if Dkl < 0
-        Dkl = Inf;
-    end
 end
 
 % Try various formulations of KL Divergence and take the best one.
@@ -56,7 +52,7 @@ function Dkl = getKLDivergence(P,Q)
     Dkl = setZero(dot(P, log2(P./Q)));
     
     % If the standard Dkl fails (i.e. is negative due to rounding error), 
-    % try alternative formulations.
+    % try alternative formulations in an attempt to get positive values.
     if Dkl < 0
         % Separate the log
         logDiff = log2(P) - log2(Q);
@@ -87,6 +83,13 @@ function Dkl = getKLDivergence(P,Q)
         % Separate the log.
         logDiff = log2(largeP) - log2(largeQ);
         Dkl = setZero(dot(P, logDiff));
+    end
+     
+    % If for some reason it still turns out negative, we assume it is zero.
+    % This is acceptable since we already took care of the case when Q has
+    % zeroes.
+    if Dkl < 0
+        Dkl = 0;
     end
 end
 
