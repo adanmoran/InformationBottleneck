@@ -20,8 +20,8 @@
 % By convention, if M is a column vector, P is a marginal distribution; if
 % M has multiple columns and dim is 'both', P becomes a joint distribution;
 % and if M has multiple columns, P becomes a conditional
-% probability distribution with P(i|j) at position (j,i) if dim = 1 or at
-% position (i,j) if dim = 2.
+% probability distribution with P(i|j) at position (i,j) if dim = 1 or at
+% position (j,i) if dim = 2.
 function P = makeDistribution(M, dim)
     % Divide P by it's sum along dimension dim.
     % By default, the division is done by columns
