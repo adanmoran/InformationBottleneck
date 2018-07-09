@@ -29,15 +29,35 @@ function P = makeDistribution(M, dim)
         dim = 1;
     end
     P = M;
+    
     % Set very small values of P1 to zero
     zeroTolerance = 10^-15;
     smallValues = (P - zeroTolerance) < 0;
     P(smallValues) = 0;
     
-    % Re-normalize along the specified dimension.
+    % Re-normalize along the specified dimension, in case the input was
+    % random numbers and not a distribution already.
     if strcmp( string(dim), 'both')
         P = P ./ sum(sum(P));
+        % Set the last value equal to 1 - sum(other values), to guarantee
+        % the total sum is exactly 1.
+        if sum(sum(P)) ~= 1
+            % Add up all the elements in each colum (except the last
+            % element) and add all those together, then set the last
+            % element to 1 - sum. 
+            % Only this way of summing up the values guarantees that
+            % sum(sum(P)) == 1
+            P(end) = 1 - (sum(sum(P(:,1:end-1))) + sum(P(1:end-1,end)));
+        end
     else
         P = P ./ sum(P,dim);
+        if dim == 1
+            % Set the last row to 1 - sum(other rows)
+            P(end,:) = 1 - sum(P(1:end-1,:),1);
+        else % dim == 2
+            % set the last column to 1 - sum(other columns)
+            P(:,end) = 1 - sum(P(:,1:end-1),2);
+        end
     end
+    
 end
