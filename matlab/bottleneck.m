@@ -26,6 +26,8 @@
 %
 % Outputs:
 % * Qtgx = Conditional distribution of T given X
+% * Qt = Distribution of T
+% * L = Bottleneck Functional value
 % * Ixt = Mutual Information I(X;T)
 % * Iyt = Mutual Information I(T;Y)
 % * Ht = Renyi Entropy H_gamma(T)
@@ -123,8 +125,6 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     % Initialize q(y|t) based on q(t|x) and q(t)
     Qygt = updateQygt(Qtgx, Qt, Pxy);
     
-    % TODO: Code the generalized information bottleneck functional
-    
     % Run the iteration algorithm until convergence.
     converged = false;
     F = Inf;
@@ -170,7 +170,7 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     end
     % Compute the entropy H_gamma(T)
     Ht = entropy(Qt, gamma);
-    % TODO: Compute the conditional entropy H(T|X)
+    % Compute the conditional entropy H(T|X)
     Htgx = condentropy(Qtgx,Px);
     % Compute the mutual information I(X;T) and I(Y;T) for the IB plane
     Ixt = mi(Qtgx,Px);
