@@ -94,6 +94,20 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
     % Validate all parameters to ensure they are valid.
     validate(N,alpha,gamma,delta,epsilon,display,betas);
     
+    % Get the distribution of X so we can compute upper limits on
+    % horizontal axes.
+    Px = makeDistribution(sum(Pxy,2));
+    
+    % Get the upper limits for the ib and dib plane, given by H(X), as well
+    % as the upper limit for the gib plane, given by H_gamma(X).
+    Hx = entropy(Px);
+    Hgx = entropy(Px,gamma);
+    
+    % Compute the mutual information between X and Y, which is the upper
+    % limit of the vertical axis on all planes.
+    Pygx = makeDistribution(Pxy ./ Px, 2);
+    Ixy = mi(Pygx,Px);
+    
     %% TODO: Compute the curve and handle all input conditions for display.
     
     % Temporarily set outputs so the function works in testing. 
