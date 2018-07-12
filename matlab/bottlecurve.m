@@ -108,7 +108,41 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
     Pygx = makeDistribution(Pxy ./ Px, 2);
     Ixy = mi(Pygx,Px);
     
-    %% TODO: Compute the curve and handle all input conditions for display.
+    % If betas are not given, find the values of these betas which will fit
+    % the desired partition
+    if isempty(betas)
+        % Distance between two partition values of H_gamma(X)
+        partitionDist = Hgx / N;
+        % Partition goes from 0 to H_gamma(X)
+        partition = (0:N) .* partitionDist;
+        
+        % Initialize betas array using the known partition size
+        betas = zeros(N+1, 0);
+        % We know the final beta is infinity
+        betas(end) = Inf;
+        
+        % Search through the partition to find the values we desire. The
+        % partition goes from 0 to H_gamma(X), but the value of 0
+        % corresponds to beta = 0 and the value of H_gamma(X) corresponds
+        % to beta = Inf. Thus, we only need to search for betas within
+        % [1/N*H(X), ... ,(N-1)/N*H(X)]. This corresponds to indices
+        % 2:(N-1)
+        for i = 2:(N-1)
+            % The horizontal axis value we are searching for is given by
+            % the partition.
+            HgaToFind = partition(i);
+            
+            % Traverse through beta values using a binary search to find
+            % the betas which result in a bottleneck value that has 
+            % Hga = HgaToFind
+            found = false;
+            while ~found
+                % TODO: Find the beta values using a binary search
+                found = true;
+            end
+        end
+    end
+    %% TODO: Compute the curve for the betas found and handle all input conditions for display.
     
     % Temporarily set outputs so the function works in testing. 
     % TODO: Remove these as they will be recomputed later.
@@ -147,6 +181,6 @@ function validate(N, alpha, gamma, delta, epsilon, display, betas)
             
     % Validate the vector of betas by checking that all values inputted are
     % positive.
-    assert( sum(betas >= 0) == length(betas),...
-        "BottleCurve: betas must all be positive non-zero.");
+    assert( betas >= 0,...
+        "BottleCurve: betas must all be non-negative values.");
 end
