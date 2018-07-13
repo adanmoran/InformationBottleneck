@@ -16,11 +16,11 @@ function I = mi(Q, Px)
     %   P(1,0) P(1,1), ... , P(1, m)
     %   ...
     %   P(n,0) P(n,1), ... , P(n, m) ]
-    Pxy = Q .* Px;
+    Pxy = makeDistribution(Q .* Px, 'both');
     
     % Compute the marginal of Y by doing P(Y = i) = sum(P(x,i)) - as a row
     % vector
-    Py = sum(Pxy,1);
+    Py = makeDistribution(sum(Pxy,1), 2);
     
     % Compute P(x)*P(y), which is the same size as Pxy
     PxPy = Px * Py;
@@ -28,4 +28,11 @@ function I = mi(Q, Px)
     % Now compute the mutual information through the KL divergence after
     I = div(Pxy,PxPy);
     
+    % If for some reason the mutual information is infinity, try doing it
+    % via H(Y) - H(Y|X)
+    if I == Inf
+        Hy = entropy(Py);
+        Hygx = condentropy(Q,Px);
+        I = Hy - Hygx;
+    end   
 end
