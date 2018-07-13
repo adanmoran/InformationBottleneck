@@ -22,6 +22,15 @@
 % and if M has multiple columns, P becomes a conditional
 % probability distribution with P(i|j) at position (i,j) if dim = 1 or at
 % position (j,i) if dim = 2.
+%
+% If M has zero sum along dim after discarding decimals, the last value 
+% along dim will be set to identically 1 to enforce the distributional
+% shape. For example, makeDistribution([1 1; 0 0], 2) yields the matrix
+%
+% [ 0.5 0.5;
+%   0   1   ]
+%
+% because the sum over row 2 is zero.
 function P = makeDistribution(M, dim)
     % Divide P by it's sum along dimension dim.
     % By default, the division is done by columns
@@ -30,15 +39,31 @@ function P = makeDistribution(M, dim)
     end
     P = M;
     
+    % Divide P by the sum along the desired dimension
+    if strcmp(string(dim),'both')
+        P = P ./ sum(sum(P));
+    else
+        % Find the sum across the dimension given
+        dimSum = sum(P,dim);
+        % If the sum across the dimension is zero, we set it to 1 so the
+        % division works out.
+        dimSum(dimSum == 0) = 1;
+        P = P ./ dimSum;
+    end
+    
     % Set very small values of P1 to zero
     zeroTolerance = 10^-15;
     smallValues = (P - zeroTolerance) < 0;
     P(smallValues) = 0;
     
+    % Also, throw away decimals in the rest of the numbers that are below
+    % 10^-15 so we don't get weird sums that add up to 1 + eps (which
+    % destroys the next step's ability to force sum(P,dim) to be 1).
+    P = floor(P * 10^15)/10^15;
+    
     % Re-normalize along the specified dimension, in case the input was
     % random numbers and not a distribution already.
     if strcmp( string(dim), 'both')
-        P = P ./ sum(sum(P));
         % Set the last value equal to 1 - sum(other values), to guarantee
         % the total sum is exactly 1.
         if sum(sum(P)) ~= 1
@@ -50,7 +75,6 @@ function P = makeDistribution(M, dim)
             P(end) = 1 - (sum(sum(P(:,1:end-1))) + sum(P(1:end-1,end)));
         end
     else
-        P = P ./ sum(P,dim);
         if dim == 1
             % Set the last row to 1 - sum(other rows)
             P(end,:) = 1 - sum(P(1:end-1,:),1);
