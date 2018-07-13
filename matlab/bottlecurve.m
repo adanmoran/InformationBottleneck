@@ -118,8 +118,9 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
         
         % Initialize betas array using the known partition size
         betas = zeros(N+1, 0);
-        % We know the final beta is infinity
-        betas(end) = Inf;
+        
+        % We know the final beta is infinity.
+        betas(N+1) = Inf;
         
         % Search through the partition to find the values we desire. The
         % partition goes from 0 to H_gamma(X), but the value of 0
@@ -131,6 +132,7 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
             % The horizontal axis value we are searching for is given by
             % the partition.
             HgaToFind = partition(i);
+            fprintf('Searching for H_gamma(T) - alpha*H(T|X) = %.8f\n',HgaToFind);
             
             % Traverse through beta values using a binary search to find
             % the betas which result in a bottleneck value that has 
@@ -181,6 +183,6 @@ function validate(N, alpha, gamma, delta, epsilon, display, betas)
             
     % Validate the vector of betas by checking that all values inputted are
     % positive.
-    assert( betas >= 0,...
+    assert( sum(betas >= 0) == length(betas),...
         "BottleCurve: betas must all be non-negative values.");
 end
