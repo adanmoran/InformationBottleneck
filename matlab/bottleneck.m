@@ -100,6 +100,8 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     if beta == Inf
         % Probability of T given X is an identity
         Qtgx = eye(n);
+        % Probability of T is identical to probability of X
+        Qt = Px;
         % Mutual information I(X;T) = I(X;X) = H(X)
         Ixt = entropy(Px);
         % Mutual information I(T;Y) = I(X;T)
@@ -264,7 +266,21 @@ function [Qtgx, Z] = updateQtgx(Qygt, Qt, Pygx, beta, alpha, gamma)
     % Get the normalization factor as an output variable, which is the
     % column vector of sums along the fixed rows.
     Z = sum(Qtgx, 2);
+    
+    % While technically it is not possible for the exponential matrix to be
+    % zero (and therefore the Z value to be zero), numerically we can get
+    % weird results because MATLAB sets exp(-746 or lower) to zero. Thus,
+    % we can end up with Z = 0 in some locations; if that happens, we
+    % get Qtgx with all zero values in some row. Since technically this
+    % can't happen, we set those Z values to 1 for now so the division
+    % works out.
+    Zzeros = Z == 0;
+    Z(Zzeros) = 1;
+    
     % Normalize the distribution along the rows and enforce the row sum as
     % identically 1.
     Qtgx = makeDistribution(Qtgx ./ Z, 2);
+    
+    % Now reset those Z-values to zero since that's what they were.
+    Z(Zzeros) = 0;
 end
