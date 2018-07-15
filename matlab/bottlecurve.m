@@ -27,7 +27,7 @@
 % in ]0,Inf[. Deafult is 1, which results in Shannon-Entropy.
 % * delta (optional) = for a fixed beta's Hga value and a partition's Hga
 % value, this beta will be optimized if |beta_Hga - partition_Hga| < delta.
-% Must be positive and non-zero. Default is 10^-8.
+% Must be positive and non-zero. Default is 1 / (4N).
 % * epsilon (optional) = the convergence value for the bottleneck function.
 % Must be positive and non-zero. Default is 10^-8.
 % * display (optional) = parameter which chooses which information planes
@@ -56,36 +56,36 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
                                             epsilon,...
                                             display,...
                                             betas)
-    % Set defaults for the 8th parameter
-    if nargin < 8
-        betas = [];
+    % Set defaults for 2nd parameter
+    if nargin < 2
+        % Partition the Hga axis
+        N = 10;
     end
-    % Set defaults for 7th parameter
-    if nargin < 7
-        display = "all";
-    end
-    % Set defaults for 6th parameter
-    if nargin < 6
-        epsilon = 10^-8;
-    end
-    % Set defaults for 5th parameter
-    if nargin < 5
-        delta = 10^-8;
+    % Set defaults for 3rd parameter
+    if nargin < 3
+        % Use H_gamma(T) - H(T|X)
+        alpha = 1;
     end
     % Set defaults for 4th parameter
     if nargin < 4
         % Use H(T) - alpha*H(T|X)
         gamma = 1;
     end
-    % Set defaults for 3rd parametre
-    if nargin < 3
-        % Use H_gamma(T) - H(T|X)
-        alpha = 1;
+    % Set defaults for 5th parameter
+    if nargin < 5
+        delta = 1/(4*N);
     end
-    % Set defaults for 2nd parameter
-    if nargin < 2
-        % Partition the Hga axis
-        N = 10;
+    % Set defaults for 6th parameter
+    if nargin < 6
+        epsilon = 10^-8;
+    end
+    % Set defaults for 7th parameter
+    if nargin < 7
+        display = "all";
+    end
+    % Set defaults for the 8th parameter
+    if nargin < 8
+        betas = [];
     end
     
     % Sort all beta values inputted so they are in order.
@@ -111,38 +111,9 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
     % If betas are not given, find the values of these betas which will fit
     % the desired partition
     if isempty(betas)
-        % Distance between two partition values of H_gamma(X)
-        partitionDist = Hgx / N;
-        % Partition goes from 0 to H_gamma(X)
-        partition = (0:N) .* partitionDist;
-        
-        % Initialize betas array using the known partition size
-        betas = zeros(N+1, 0);
-        
-        % We know the final beta is infinity.
-        betas(N+1) = Inf;
-        
-        % Search through the partition to find the values we desire. The
-        % partition goes from 0 to H_gamma(X), but the value of 0
-        % corresponds to beta = 0 and the value of H_gamma(X) corresponds
-        % to beta = Inf. Thus, we only need to search for betas within
-        % [1/N*H(X), ... ,(N-1)/N*H(X)]. This corresponds to indices
-        % 2:(N-1)
-        for i = 2:(N-1)
-            % The horizontal axis value we are searching for is given by
-            % the partition.
-            HgaToFind = partition(i);
-            fprintf('Searching for H_gamma(T) - alpha*H(T|X) = %.8f\n',HgaToFind);
-            
-            % Traverse through beta values using a binary search to find
-            % the betas which result in a bottleneck value that has 
-            % Hga = HgaToFind
-            found = false;
-            while ~found
-                % TODO: Find the beta values using a binary search
-                found = true;
-            end
-        end
+        Bs = findBetaPartition(Pxy, N, Hgx, alpha, gamma, delta, epsilon);
+    else
+        Bs = betas;
     end
     %% TODO: Compute the curve for the betas found and handle all input conditions for display.
     
@@ -185,4 +156,156 @@ function validate(N, alpha, gamma, delta, epsilon, display, betas)
     % positive.
     assert( sum(betas >= 0) == length(betas),...
         "BottleCurve: betas must all be non-negative values.");
+end
+
+%% Find Partition of Betas
+% Separate the Hga(T,X) = H_gamma(T) - alpha * H(T|X) axis into N regions,
+% from Hga(T,X) = 0 to Hga(T,X) = H_gamma(X). Then, find beta values so
+% that the corresponding generalized bottleneck for that beta has a
+% horizontal coordinate equal to that Hga(T,X) value.
+% 
+% These beta values are found by doing a bisection search. For each
+% Hga(T,X) to find, we first take a lower bound on beta and find an upper
+% bound on beta. Then beta = (lower + upper)/2 is taken, the Hga value is
+% computed, and if it is within tolerance of the HgaToFind value this beta
+% is added to the list. Otherwise, the lower or upper bounds are moved
+% closer to each other until some beta value results in the desired output.
+%
+% Inputs:
+% * Pxy = The joint distribution of X and Y
+% * N = The number of regions.
+% * Hgx = The renyi entropy of X, H_gamma(X).
+% * alpha = The alpha parameter in the Hga equation.
+% * gamma = The renyi entropy parameter. 
+% * delta = For some beta, if the output horizontal value is h and we are
+% trying to find the value H, this beta is considered to be accurate enough
+% if |h - H| <= delta.
+% * epsilon = The convergence value for the bottleneck function. Also, if
+% the lower and upper bounds on beta for a fixed Hga value are within
+% epsilon, we will not be able to find an Hga which is within delta of the
+% desired HgaToFind. In that case, beta is chosen even though it does not
+% fit the requirements simply so we can have N points on the curve.
+%
+% Outputs:
+% * betas = A list of N+2 beta values (0, Inf, and N values in between)
+% which meet the requirements of splitting the Hga(T,X) plane into N
+% regions.
+function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
+    % Distance between two partition values of H_gamma(X)
+    partitionDist = Hgx / N;
+    % Partition goes from 0 to H_gamma(X)
+    partition = (0:N) .* partitionDist;
+
+    % Initialize betas array using the known partition size
+    betas = zeros(N+1, 0);
+
+    % We know the final beta is infinity.
+    betas(N+1) = Inf;
+
+    % Set how much we will increment the right boundary of a bisection
+    % method when initializing the search space for betas.
+    rightBetaIncrement = 10;
+
+    % Search through the partition to find the values we desire. The
+    % partition goes from 0 to H_gamma(X), but the value of 0
+    % corresponds to beta = 0 and the value of H_gamma(X) corresponds
+    % to beta = Inf. Thus, we only need to search for betas within
+    % [1/N*H(X), ... ,(N-1)/N*H(X)]. This corresponds to indices
+    % 2:(N-1)
+    for i = 2:(N-1)
+        % The horizontal axis value we are searching for is given by
+        % the partition.
+        HgaToFind = partition(i);
+        fprintf('Searching for H_gamma(T) - alpha*H(T|X) = %.8f\n',HgaToFind);
+
+        % Set an initial left boundary for the bisection method by
+        % taking the previous beta value found and taking the nearest
+        % integer smaller than it. This guarantees that the left
+        % boundary will have Hga less than the HgaToFind, since our
+        % partition is only growing.
+        leftBeta = floor(betas(i-1));
+        % Find a rightmost beta value by starting at our previous beta
+        % value and adding a fixed number.
+        rightBeta = ceil(betas(i-1)) + rightBetaIncrement;
+        rightmostBetaFound = false;
+
+        % Keep increasing the rightmost beta value until we find one
+        % where Hga > HgaToFind, so that we can perform the bisection
+        % method in the next loop.
+        while ~rightmostBetaFound
+            % Compute the horizontal axis value for this rightmost beta
+            % boundary.
+            [~,~,~,~,~,Hgt,Htgx] = bottleneck(Pxy, rightBeta, ...
+                                              alpha, gamma, epsilon);
+            rightHga = Hgt - alpha * Htgx;
+            % If the rightmost beta boundary is too small, it means we
+            % need to increase our initialized search space by
+            % incrementing this boundary. Otherwise, there is no way
+            % the bisection method will find a beta whose IB converges
+            % to HgaToFind.
+            if rightHga < HgaToFind
+                fprintf('rightHga = %.9f for rightBeta = %d, increasing by 10.\n',rightHga, rightBeta);
+                rightBeta = rightBeta + rightBetaIncrement;
+
+            % If the rightmost boundary has an Hga value to the right
+            % of the one we want to find, then we're golden.
+            else
+                fprintf('Stopping rightBeta = %d, Hga = %.9f\n',rightBeta, rightHga);
+                rightmostBetaFound = true;
+            end
+        end
+
+        % Traverse through beta values using a binary search to find
+        % the betas which result in a bottleneck value that has 
+        % Hga = HgaToFind
+        found = false;
+        while ~found
+            % Compute the midpoint of our two boundaries as part of the
+            % bisection method.
+            currentBeta = (leftBeta + rightBeta) / 2;
+
+            % Compute the current horizontal axis value in order to
+            % determine whether this is a beta which should converge.
+            [~,~,~,~,~,Hgt,Htgx] = bottleneck(Pxy, currentBeta, ...
+                                              alpha, gamma, epsilon);
+            Hga = Hgt - alpha * Htgx;
+            fprintf('Beta %d gave Hga = %.9f\n',currentBeta,Hga);
+            % Compute the difference between the current value and
+            % where we want to be.
+            HgaDiff = Hga - HgaToFind;
+            fprintf('--- Diff = %.9f\n',HgaDiff);
+            % If the current value is within delta of our desired
+            % horizontal axis value, we've found it.
+            if abs(HgaDiff) <= delta
+                fprintf('Found it!');
+                % Set the beta to our currently found value. We will
+                % optimize this later.
+                betas(i) = currentBeta;
+                found = true;
+            % If we do not find the Hga value, we use the bisection
+            % method. For a negative HgaDiff, our currentBeta is too
+            % low which means we need to shift our leftmost beta
+            % boundary to the right. For a positive HgaDiff, our 
+            % currentBeta is too high so we need to shift our rightmost
+            % beta boundary to the left.
+            elseif HgaDiff < 0
+                % Shift the left boundary right
+                leftBeta = currentBeta;
+            else % HgaDiff > +delta
+                % Shift the right boundary left.
+                rightBeta = currentBeta;
+            end
+
+            % If somehow we get to the point where the left and right
+            % boundaries are essentially identical, we assume the
+            % lack of convergence happened because of the fact that the
+            % bottleneck is only locally optimal and it cannot get an
+            % exact value for this region.
+            if abs(leftBeta - rightBeta) < epsilon
+                fprintf('Saying we found beta because leftBeta and rightBeta are the same.');
+                betas(i) = currentBeta;
+                found = true;
+            end
+        end
+    end
 end
