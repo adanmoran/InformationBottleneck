@@ -130,6 +130,84 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
                                          gamma, epsilon, maxIterations);
                                      
 %% TODO: Handle all input conditions for display and plot the curves.
+    % If we are not to display anything, don't do any more processing and
+    % exit the function now.
+    if strcmp(display,'none')
+        return;
+    end
+    % Set boolean flags based on the 'display' string to choose which
+    % curves to display.
+    displayAll = strcmp(display,'all');
+    displayIB = strcmp(display,'ib') || displayAll;
+    displayDIB = strcmp(display,'dib') || displayAll;
+    gibSelected = strcmp(display,'gib') || displayAll;
+    % By default, we do not display the third plane. This is handled in the
+    % conditions on alpha and gamma later.
+    displayGIB = false;
+    
+    % In the case of the GIB plane, we need to choose which plane to
+    % display - the IB, the DIB, or the third plane.
+    if gibSelected
+        % If gamma is 1, we may have an IB or DIB situation
+        if gamma == 1
+            % In this case when alpha is 0, we have H(T) - beta I(T;Y),
+            % which is the DIB
+            if alpha == 0
+                displayDIB = true;
+            % If alpha is 1, we have I(X;T) - beta I(T;Y), which is the IB
+            elseif alpha == 1
+                displayIB = true;
+            % Anything else gives H(T) - alpha H(T|X) - beta I(T;Y), which
+            % is neither an IB or DIB
+            else
+                displayGIB = true;
+            end
+        % If gamma is not 1, we clearly do not have an IB or DIB situation
+        % and are in the Generalized bottleneck scenario.
+        else
+            displayGIB = true;
+        end
+    end
+    
+    % Set the color map based on the beta values.
+    % cmap = betaValues;
+    
+    % Handle the case where we have to display the IB plane
+    if displayIB
+        % Create a figure for the IB plane
+        ibf = figure;
+        % Plot the IB curve for these betas
+        plot(Ixt,Iyt);
+        % TODO: Plot the legend, I(X;Y), H(X), and put titles and such
+        xlabel('I(X;T)');
+        ylabel('I(T;Y)');
+        title(sprintf('IB Plane for |X|=%d and |Y|=%d',...
+            size(Pxy,1),size(Pxy,2)));
+        % Plot the box within which the curve should lie, which is given by
+        % H(X) and I(X;Y)
+        hold on;
+        plot([0,Hx],[Ixy,Ixy]); % I(X;Y) horizontal line
+        plot([Hx,Hx],[0,Ixy]); % H(X) vertical line
+        hold off;
+        % Plot the legend in the bottom right corner with no background or
+        % outline
+        legend({'IB','I(X;Y)','H(X)'},'Location','Southeast');
+        legend('boxoff');
+    end
+    
+    % Now handle the case where we have to display the DIB plane
+    if displayDIB
+        % TODO: Fill this in similarly to the IB plane
+    end
+    
+    % We finally handle the case where we display the third "generalized"
+    % plane.
+    if displayGIB
+        % TODO: Fill this in similarly to the DIB and IB cases, except we
+        % plot H_gamma(X) instead of H(X) and the xlabel has to use
+        % H_gamma(T) - alpha H(T|X) (with gamma and alpha as sprintf
+        % inputs).
+    end
 end
 
 %% Validation
@@ -235,12 +313,11 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
         fprintf('Searching for H_gamma(T) - alpha*H(T|X) = %.8f\n',HgaToFind);
 
         % Set an initial left boundary for the bisection method by
-        % taking the previous beta value found and taking the nearest
-        % integer smaller than it. This guarantees that the left
+        % taking the previous beta value. This guarantees that the left
         % boundary will have Hga less than the HgaToFind, since our
         % partition is only growing.
-        leftBeta = floor(betas(i-1));
-        % Find a rightmost beta value by starting at our previous beta
+        leftBeta = betas(i-1);
+        % Find a rightmost beta value by starting above our previous beta
         % value and adding a fixed number.
         rightBeta = ceil(betas(i-1)) + rightBetaIncrement;
         rightmostBetaFound = false;
