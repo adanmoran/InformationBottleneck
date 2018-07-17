@@ -41,14 +41,16 @@
 % beta values. Default is [].
 %
 % Outputs:
-% * Ixt = I(X;T), the mutual information values for each beta.
-% * Ht = H(T), the shannon entropy values for each beta.
-% * Hgt = H_gamma(T), the Renyi entropy values for each beta.
+% * Hga = H_gamma(T) - alpha*H(T|X), the generalized information (General
+% X-axis).
+% * Ht = H(T), the shannon entropy values for each beta (DIB plane X-axis).
+% * Ixt = I(X;T), the mutual information values for each beta (IB plane
+% X-axis).
 % * Iyt = I(T;Y), the mutual information values of the output which is
 % common to all information planes.
 % * Bs = beta values that were found which partition the curve into N
 % points.
-function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
+function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
                                             N,...
                                             alpha,...
                                             gamma,...
@@ -88,6 +90,9 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
         betas = [];
     end
     
+    % Set the default max iterations for the optimization loop
+    maxIterations = 50;
+    
     % Sort all beta values inputted so they are in order.
     betas = sort(betas);
     
@@ -116,19 +121,15 @@ function [Ixt,Ht,Hgt,Iyt,Bs] = bottlecurve( Pxy,...
     else
         Bs = betas;
     end
-    %% TODO: Compute the curve for the betas found and handle all input conditions for display.
+
     % Compute the positions on the curve for each of the planes, where
     % Hs is entropies H(T), Hgas is the generalized entropy
     % H_gamma(T) - alpha H(T|X), IbXs is the mutual information I(X;T),
     % and IbYs is the mutual information I(T;Y).
-    [Hs,Hgas,IbXs,IbYs] = getCurvePoints(Pxy,Bs,alpha,gamma,epsilon);
-    
-    % Temporarily set outputs so the function works in testing. 
-    % TODO: Remove these as they will be recomputed later.
-    Ixt = 0;
-    Ht = 0;
-    Hgt = 0;
-    Iyt = 0;
+    [Hga,Ht,Ixt,Iyt] = getCurvePoints(Pxy, Bs, alpha,...
+                                         gamma, epsilon, maxIterations);
+                                     
+%% TODO: Handle all input conditions for display and plot the curves.
 end
 
 %% Validation
@@ -227,7 +228,7 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
     % to beta = Inf. Thus, we only need to search for betas within
     % [1/N*H(X), ... ,(N-1)/N*H(X)]. This corresponds to indices
     % 2:(N-1)
-    for i = 2:(N-1) 
+    for i = 2:N 
         % The horizontal axis value we are searching for is given by
         % the partition.
         HgaToFind = partition(i);
@@ -361,19 +362,21 @@ end
 % * maxIterations = number of iterations 
 %
 % Outputs:
-% * Hs = entropy values for T, H(T)
 % * Hgas = generalized entropy values, H_gamma(T) - alpha*H(T|X)
+% * Hs = entropy values for T, H(T)
 % * IbXs = mutual information I(X;T)
 % * IbYs = mutual information I(T;Y)
-function [Hs,Hgas,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
+function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
                                               gamma,epsilon,maxIterations)
+    % TODO: Make this an input
+    debug = true;
     % Number of elements in the beta list, used for initializing output
     % vectors to speed up allocation
     numBetas = length(Bs);
     
     % Initialize the output vectors
-    Hs = zeros(1,numBetas);
     Hgas = zeros(1,numBetas);
+    Hs = zeros(1,numBetas);
     IbXs = zeros(1,numBetas);
     IbYs = zeros(1,numBetas);
     
@@ -392,8 +395,73 @@ function [Hs,Hgas,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
        waitbar(betaIndex / numBetas, bar, ...
            sprintf('Computing bottleneck for beta = %.2f\n (%d of %d)',...
                 beta, betaIndex, numBetas));
-    % TODO: Perform a search for the optimal L for this beta given the
-    % inputs.
+            
+        if debug
+            fprintf('-> Searching for optimal L for beta = %.3f\n',beta);
+        end
+        % Compute an initial bottleneck position for this beta
+        [~,Qt,L,Ixt,Iyt,Hgt,Htgx] = bottleneck(Pxy, beta, alpha, ...
+                                               gamma, epsilon, debug);
+        
+        % Keep track of the current number of times we've run the
+        % bottleneck since the last optimal L, so as to stop at the max
+        % number of iterations
+        bottleneckIteration = 1;
+        
+        % Flag to keep looking if the max number of iterations is not
+        % reached
+        optimalLFound = false;
+        % Skip the while loop if beta = 0 or beta = Inf, since these are
+        % deterministic cases where we know we cannot improve the results.
+        if beta == 0 || beta == Inf
+            optimalLFound = true;
+        end
+        
+        % Continue to run the bottleneck until we find an optimal L. Of
+        % course, we can skip the case where beta = 0 or beta = Inf
+        while ~optimalLFound
+            % Compute a new L value and new outputs
+            [~, newQt, newL, newIxt, newIyt, newHgt, newHtgx] = ...
+                bottleneck(Pxy, beta, alpha, gamma, epsilon, false);
+            
+            % If a new minimum L was found, reset the counter and keep
+            % going.
+            if newL < L
+                % Update the "optimal" output variables
+                Qt = newQt;
+                L = newL;
+                Ixt = newIxt;
+                Iyt = newIyt;
+                Hgt = newHgt;
+                Htgx = newHtgx;
+                bottleneckIteration = 1;
+                
+                % Display output if requested.
+                if debug
+                    fprintf('-> Found new optimal L: %.16f\n',L);
+                end
+            else
+                bottleneckIteration = bottleneckIteration + 1;
+            end
+            
+            % If we have reached our max allowable iterations, stop
+            % searching and use the current minimum.
+            if bottleneckIteration >= maxIterations
+                optimalLFound = true;
+            end
+        end
+        
+        % Compute the H_gamma(T) - alpha*H(T|X) of this optimal
+        % distribution
+        Hgas(betaIndex) = Hgt - alpha*Htgx;
+        
+        % Compute the entropy of this optimal distribution
+        Hs(betaIndex) = entropy(Qt);
+        
+        % Insert the mutual information values into their respective output
+        % variables
+        IbXs(betaIndex) = Ixt;
+        IbYs(betaIndex) = Iyt;
     end
     
     % Close the waitbar
