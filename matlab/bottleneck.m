@@ -69,22 +69,6 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     assert(alpha >= 0 && alpha < Inf, ...
         'Bottleneck: Alpha must be in [0,Inf[');
     assert(beta >= 0, 'Bottleneck: Beta must be positive.');
-    
-    % If beta is zero, all X values are compressed to one point
-    if beta == 0
-        % Assign a conditional probability of 1 to T = 1
-        Qtgx = zeros(size(Pxy,1));
-        Qtgx(:,1) = 1;
-        % Mutual information of a deterministic function is 0
-        Ixt = 0;
-        Iyt = 0;
-        % Renyi entropy of a deterministic function is 0
-        Ht = 0;
-        Htgx = 0;
-        % L-functional value is 0 - beta*0 = 0
-        L = 0;
-        return;
-    end
         
     % Get the distribution of X and throw away any small decimals to avoid
     % floating point errors
@@ -96,8 +80,25 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     % identically 1.
     Pygx = makeDistribution(Pxy ./ Px, 2);
     
+        % If beta is zero, all X values are compressed to one point
+    if beta == 0
+        % Assign a conditional probability of 1 to T = 1
+        Qtgx = zeros(size(Pxy,1));
+        Qtgx(:,1) = 1;
+        % The output distribution of Qt is just a singular value with
+        % probability 1.
+        Qt = updateQt(Qtgx,Px);
+        % Mutual information of a deterministic function is 0
+        Ixt = 0;
+        Iyt = 0;
+        % Renyi entropy of a deterministic function is 0
+        Ht = 0;
+        Htgx = 0;
+        % L-functional value is 0 - beta*0 = 0
+        L = 0;
+        return;
     % If beta is infinity, we must return T as equal to X
-    if beta == Inf
+    elseif beta == Inf
         % Probability of T given X is an identity
         Qtgx = eye(n);
         % Probability of T is identical to probability of X
