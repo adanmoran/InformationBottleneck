@@ -318,8 +318,9 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
         % partition is only growing.
         leftBeta = betas(i-1);
         % Find a rightmost beta value by starting above our previous beta
-        % value and adding a fixed number.
-        rightBeta = ceil(betas(i-1)) + rightBetaIncrement;
+        % value and adding a fixed number. This will be a fixed boundary
+        % over which the bisection method cannot cross.
+        rightBetaBoundary = ceil(betas(i-1)) + rightBetaIncrement;
         rightmostBetaFound = false;
 
         % Update the waitbar
@@ -332,7 +333,7 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
         while ~rightmostBetaFound
             % Compute the horizontal axis value for this rightmost beta
             % boundary.
-            [~,~,~,~,~,Hgt,Htgx] = bottleneck(Pxy, rightBeta, ...
+            [~,~,~,~,~,Hgt,Htgx] = bottleneck(Pxy, rightBetaBoundary, ...
                                               alpha, gamma, epsilon);
             rightHga = Hgt - alpha * Htgx;
             % If the rightmost beta boundary is too small, it means we
@@ -341,16 +342,19 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
             % the bisection method will find a beta whose IB converges
             % to HgaToFind.
             if rightHga < HgaToFind
-                fprintf('rightHga = %.9f for rightBeta = %d, increasing by 10.\n',rightHga, rightBeta);
-                rightBeta = rightBeta + rightBetaIncrement;
+                fprintf('rightHga = %.9f for rightBeta = %d, increasing by 10.\n',rightHga, rightBetaBoundary);
+                rightBetaBoundary = rightBetaBoundary + rightBetaIncrement;
 
             % If the rightmost boundary has an Hga value to the right
             % of the one we want to find, then we're golden.
             else
-                fprintf('Stopping rightBeta = %d, Hga = %.9f\n',rightBeta, rightHga);
+                fprintf('Stopping rightBeta = %d, Hga = %.9f\n',rightBetaBoundary, rightHga);
                 rightmostBetaFound = true;
             end
         end
+        % Initialize our right beta value to our boundary for the bisection
+        % method.
+        rightBeta = rightBetaBoundary;
         
         % Traverse through beta values using a binary search to find
         % the betas which result in a bottleneck value that has 
@@ -399,14 +403,22 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
             end
 
             % If somehow we get to the point where the left and right
-            % boundaries are essentially identical, we assume the
-            % lack of convergence happened because of the fact that the
-            % bottleneck is only locally optimal and it cannot get an
-            % exact value for this region.
+            % boundaries are essentially identical, then we moved too far
+            % in one direction because the bottleneck function is only
+            % locally optimal and we skipped over valid betas.
             if abs(leftBeta - rightBeta) < epsilon
-                fprintf('Saying we found beta because leftBeta and rightBeta are the same.');
-                betas(i) = currentBeta;
-                found = true;
+                % If we are too far right on the Hga scale, it means our
+                % left boundary is too far right. Move it to the left,
+                % limited by our previous beta value.
+                if Hga > HgaToFind
+                    leftBeta = max(betas(i-1), leftBeta - 10);
+                % If we are too far left on the Hga scale, it means our
+                % right boundary is too far left. Move it to the right,
+                % limited by the hard boundary we found in the previus
+                % loop.
+                else
+                    rightBeta = min(rightBetaBoundary, rightBeta + 10);
+                end
             end
         end
     end
@@ -525,6 +537,21 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
             % searching and use the current minimum.
             if bottleneckIteration >= maxIterations
                 optimalLFound = true;
+                % Compute the Hga value
+                Hga = Hgt - alpha*Htgx;
+                % If this "optimal" version is not in the correct position
+                % we should restart the loop.
+                if Hga < Hgas(max(betaIndex - 1, 1))
+                    fprintf("This Ixt is too small!");
+                    L = Inf;
+                    optimalLFound = false;
+                    pause(1);
+                elseif Iyt < IbYs(max(betaIndex-1,1))
+                    fprintf('This Iyt is too small! Try the loop again.');
+                    L = Inf;
+                    optimalLFound = false;
+                    pause(1);
+                end
             end
         end
         
