@@ -134,13 +134,9 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     while ~converged
         % Update the distribution of T given X
         [newQtgx,Z] = updateQtgx(Qygt, Qt, Pygx, beta, alpha, gamma);
+        % Update the distribution of T using Bayes' Rule
         newQt = updateQt(newQtgx,Px);
-        % If q(t) is zero anywhere, discard those rows in q(t) and columns
-        % in q(t|x) before updating q(y|t).
-        nonZeroT = newQt > 0;
-        newQt = newQt(nonZeroT);
-        newQtgx = newQtgx(:, nonZeroT);
-        % Update q(y|t) using these non-zero values.
+        % Update q(y|t) using the Markov Chain property
         newQygt = updateQygt(newQtgx,newQt,Pxy);
         % Update the functional which minimizes the distributions, which is
         % given by Ex[log(Z(x,beta))]
@@ -197,8 +193,13 @@ function Qygt = updateQygt(Qtgx,Qt,Pxy)
     % columns. Thus, by transposing q(t|x) and multiplying by p(x,y) we get
     % a sum over x and have p(y|t) at position (t,y).
     QygtQt = Qtgx' * Pxy;
+    % Divide by q(t) to get q(y|t)
+    Qygt = QygtQt ./ Qt;
+    % Some q(t) might be zero; if that's the case, then q(y|t) is zero for
+    % those t values, for all Y.
+    Qygt(Qt == 0,:) = 0;
     % Normalize along the rows to ensure the row sum is 1.
-    Qygt = makeDistribution(QygtQt ./ Qt, 2);
+    Qygt = makeDistribution(Qygt, 2);
 end
 
 function [Qtgx, Z] = updateQtgx(Qygt, Qt, Pygx, beta, alpha, gamma)
