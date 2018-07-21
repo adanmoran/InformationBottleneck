@@ -144,33 +144,21 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     % By default, we do not display the third plane. This is handled in the
     % conditions on alpha and gamma later.
     displayGIB = false;
+    % The name that is to be shown in the legend depends on whether this
+    % was the IB, DIB, or Renyi-DIB
+    curveName = bottleneckType(alpha, gamma);
     
     % In the case of the GIB plane, we need to choose which plane to
     % display - the IB, the DIB, or the third plane.
     if gibSelected
-        % If gamma is 1, we may have an IB or DIB situation
-        if gamma == 1
-            % In this case when alpha is 0, we have H(T) - beta I(T;Y),
-            % which is the DIB
-            if alpha == 0
-                displayDIB = true;
-            % If alpha is 1, we have I(X;T) - beta I(T;Y), which is the IB
-            elseif alpha == 1
-                displayIB = true;
-            % Anything else gives H(T) - alpha H(T|X) - beta I(T;Y), which
-            % is neither an IB or DIB
-            else
-                displayGIB = true;
-            end
-        % If gamma is not 1, we clearly do not have an IB or DIB situation
-        % and are in the Generalized bottleneck scenario.
+        if strcat(curveName, 'IB')
+            displayIB = true;
+        elseif strcat(curveName, 'DIB')
+            displayDIB = true;
         else
             displayGIB = true;
         end
     end
-    
-    % Set the color map based on the beta values.
-    % cmap = betaValues;
     
     % Handle the case where we have to display the IB plane
     if displayIB
@@ -178,7 +166,7 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
         ibf = figure;
         % Plot the IB curve for these betas
         plot(Ixt,Iyt);
-        % TODO: Plot the legend, I(X;Y), H(X), and put titles and such
+        % Put in the titles, legend, and axes labels
         xlabel('I(X;T)');
         ylabel('I(T;Y)');
         title(sprintf('IB Plane for |X|=%d and |Y|=%d',...
@@ -191,13 +179,31 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
         hold off;
         % Plot the legend in the bottom right corner with no background or
         % outline
-        legend({'IB','I(X;Y)','H(X)'},'Location','Southeast');
+        legend({curveName,'I(X;Y)','H(X)'},'Location','Southeast');
         legend('boxoff');
     end
     
     % Now handle the case where we have to display the DIB plane
     if displayDIB
-        % TODO: Fill this in similarly to the IB plane
+        % Create a figure for the DIB plane
+        dibf = figure;
+        % Plot the DIB curve for these betas
+        plot(Ht,Iyt);
+                % Put in the titles, legend, and axes labels
+        xlabel('H(T)');
+        ylabel('I(T;Y)');
+        title(sprintf('DIB Plane for |X|=%d and |Y|=%d',...
+            size(Pxy,1),size(Pxy,2)));
+        % Plot the box within which the curve should lie, which is given by
+        % H(X) and I(X;Y)
+        hold on;
+        plot([0,Hx],[Ixy,Ixy]); % I(X;Y) horizontal line
+        plot([Hx,Hx],[0,Ixy]); % H(X) vertical line
+        hold off;
+        % Plot the legend in the bottom right corner with no background or
+        % outline
+        legend({curveName,'I(X;Y)','H(X)'},'Location','Southeast');
+        legend('boxoff');
     end
     
     % We finally handle the case where we display the third "generalized"
@@ -278,8 +284,7 @@ end
 % which meet the requirements of splitting the Hga(T,X) plane into N
 % regions.
 function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
-%% TODO: Update this function to only display printouts if debug mode is on.
-%% TODO: Add a waitbar to this function so users can get feedback (or have the waitbar passed in as a parameter).
+%% TODO: Update this function to only display printouts if debug mode is on.f
     % Distance between two partition values of H_gamma(X)
     partitionDist = Hgx / N;
     % Partition goes from 0 to H_gamma(X)
@@ -293,7 +298,8 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
 
     % Set how much we will increment the right boundary of a bisection
     % method when initializing the search space for betas.
-    rightBetaIncrement = 10;
+    % TODO: Make this an input
+    rightBetaIncrement = 5;
     
     % Initialize a waitbar so we can display the results of the search.
     bar = waitbar(0,'', 'Name', 'Find Beta Partition');
@@ -407,17 +413,20 @@ function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
             % in one direction because the bottleneck function is only
             % locally optimal and we skipped over valid betas.
             if abs(leftBeta - rightBeta) < epsilon
+                output = '* Boundaries are the same, shifting %s';
                 % If we are too far right on the Hga scale, it means our
                 % left boundary is too far right. Move it to the left,
                 % limited by our previous beta value.
                 if Hga > HgaToFind
-                    leftBeta = max(betas(i-1), leftBeta - 10);
+                    fprintf(output,'left\n');
+                    leftBeta = max(betas(i-1), leftBeta - rightBetaIncrement);
                 % If we are too far left on the Hga scale, it means our
                 % right boundary is too far left. Move it to the right,
                 % limited by the hard boundary we found in the previus
                 % loop.
                 else
-                    rightBeta = min(rightBetaBoundary, rightBeta + 10);
+                    fprintf(output,'right\n');
+                    rightBeta = min(rightBetaBoundary, rightBeta + rightBetaIncrement);
                 end
             end
         end
@@ -545,12 +554,10 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
                     fprintf("This Ixt is too small!");
                     L = Inf;
                     optimalLFound = false;
-                    pause(1);
                 elseif Iyt < IbYs(max(betaIndex-1,1))
                     fprintf('This Iyt is too small! Try the loop again.');
                     L = Inf;
                     optimalLFound = false;
-                    pause(1);
                 end
             end
         end
@@ -570,4 +577,41 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
     
     % Close the waitbar
     delete(bar);
+end
+
+%% Determine bottleneck type
+% This finds the bottleneck name based on the alpha and gamma values.
+%
+% Inputs:
+% * alpha = parameter in front of H(T|X)
+% * gamma = Renyi parameter in H_gamma(T)
+%
+% Outputs:
+% * name = name of the bottleneck. This is 'IB', 'DIB', 'Renyi-DIB', or
+% 'MIB'
+function name = bottleneckType(alpha,gamma)
+    % If gamma is 1, we may have an IB or DIB situation
+    if gamma == 1
+        % In this case when alpha is 0, we have H(T) - beta I(T;Y),
+        % which is the DIB
+        if alpha == 0
+            name = 'DIB';
+        % If alpha is 1, we have I(X;T) - beta I(T;Y), which is the IB
+        elseif alpha == 1
+            name = 'IB';
+        % Anything else gives H(T) - alpha H(T|X) - beta I(T;Y), which
+        % is neither an IB or DIB. Instead, it is a Moran Information 
+        % Bottleneck
+        else
+            name = 'MIB';
+        end
+    % If gamma is not 1, but alpha is 0, we have a Renyi-DIB
+    % zero then we have
+    elseif alpha == 0
+        name = 'Renyi-DIB';
+    % Anything else means we clearly do not have an IB or DIB situation
+    % and are in the Generalized bottleneck scenario.
+    else
+        name = 'MIB';
+    end
 end
