@@ -112,12 +112,15 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     % limit of the vertical axis on all planes.
     Pygx = makeDistribution(Pxy ./ Px, 2);
     Ixy = mi(Pygx,Px);
+
+    % Compute the leftmost point on the curve, which is given by beta = 0
+    minHga = getCurvePoints(Pxy, [0], alpha, gamma, epsilon, 50);
     
     % If betas are not given, find the values of these betas which will fit
     % the desired partition in the H_gamma(T) - alpha*H(T|X) axis.
     if isempty(betas)
         Bs = findBetaPartition(Pxy, N, Hgx, alpha, gamma, delta, ...
-                               epsilon);
+                               epsilon, minHga);
     else
         Bs = betas;
     end
@@ -151,9 +154,9 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     % In the case of the GIB plane, we need to choose which plane to
     % display - the IB, the DIB, or the third plane.
     if gibSelected
-        if strcat(curveName, 'IB')
+        if strcmp(curveName, 'IB')
             displayIB = true;
-        elseif strcat(curveName, 'DIB')
+        elseif strcmp(curveName, 'DIB')
             displayDIB = true;
         else
             displayGIB = true;
@@ -189,7 +192,7 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
         dibf = figure;
         % Plot the DIB curve for these betas
         plot(Ht,Iyt);
-                % Put in the titles, legend, and axes labels
+        % Put in the titles, legend, and axes labels
         xlabel('H(T)');
         ylabel('I(T;Y)');
         title(sprintf('DIB Plane for |X|=%d and |Y|=%d',...
@@ -209,6 +212,24 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     % We finally handle the case where we display the third "generalized"
     % plane.
     if displayGIB
+        gibf = figure;
+        % Plot the GIB curve for these betas
+        plot(Hga,Iyt);
+        % Put in the titles, legend, and axes labels
+        xlabel(sprintf('H_{%.2f}(T) - %.2f*H(T|X)',gamma,alpha));
+        ylabel('I(T;Y)');
+        title(sprintf('Generalized Bottleneck Plane for |X|=%d and |Y|=%d',...
+            size(Pxy,1),size(Pxy,2)));
+        % Plot the box within which the curve should lie, which is given by
+        % H_gamma(X) and I(X;Y)
+        hold on;
+        plot([minHga,Hgx],[Ixy,Ixy]); % I(X;Y) horizontal line
+        plot([Hgx,Hgx],[0,Ixy]); % H(X) vertical line
+        hold off;
+        % Plot the legend in the bottom right corner with no background or
+        % outline
+        legend({curveName,'I(X;Y)','H(X)'},'Location','Southeast');
+        legend('boxoff');
         % TODO: Fill this in similarly to the DIB and IB cases, except we
         % plot H_gamma(X) instead of H(X) and the xlabel has to use
         % H_gamma(T) - alpha H(T|X) (with gamma and alpha as sprintf
@@ -278,17 +299,18 @@ end
 % epsilon, we will not be able to find an Hga which is within delta of the
 % desired HgaToFind. In that case, beta is chosen even though it does not
 % fit the requirements simply so we can have N points on the curve.
+% * minHga = the leftmost Hga value. This is zero for the IB, DIB, and
+% Renyi-DIB, but may be non-zero for anything else.
 %
 % Outputs:
 % * betas = A list of N+2 beta values (0, Inf, and N values in between)
 % which meet the requirements of splitting the Hga(T,X) plane into N
 % regions.
-function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon)
-%% TODO: Update this function to only display printouts if debug mode is on.f
+function betas = findBetaPartition(Pxy,N,Hgx,alpha,gamma,delta,epsilon,minHga)
     % Distance between two partition values of H_gamma(X)
-    partitionDist = Hgx / N;
-    % Partition goes from 0 to H_gamma(X)
-    partition = (0:N) .* partitionDist;
+    partitionDist = (Hgx - minHga) / N;
+    % Partition goes from minimum Hga value to H_gamma(X)
+    partition = minHga + (0:N) .* partitionDist;
 
     % Initialize betas array using the known partition size
     betas = zeros(N+1, 0);
@@ -457,7 +479,9 @@ end
 % * alpha = parameter in front of H(T|X) in the L-functional
 % * gamma = renyi parameter for the entropy of T
 % * epsilon = convergence parameter for the bottleneck function
-% * maxIterations = number of iterations 
+% * maxIterations = number of iterations where L must not become smaller
+% before we consider the functional converged for a fixed beta. Recommended
+% value is 50 or above.
 %
 % Outputs:
 % * Hgas = generalized entropy values, H_gamma(T) - alpha*H(T|X)
@@ -468,6 +492,7 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
                                               gamma,epsilon,maxIterations)
     % TODO: Make this an input
     debug = true;
+    %%TODO: Make the waitbar and printouts optional
     % Number of elements in the beta list, used for initializing output
     % vectors to speed up allocation
     numBetas = length(Bs);
@@ -515,6 +540,11 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
             optimalLFound = true;
         end
         
+        % Count how many times this beta value converges to a point in the
+        % information plane that is suboptimal compared to the previous 
+        % beta value.
+        suboptimalCount = 0;
+        
         % Continue to run the bottleneck until we find an optimal L. Of
         % course, we can skip the case where beta = 0 or beta = Inf
         while ~optimalLFound
@@ -549,16 +579,43 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
                 % Compute the Hga value
                 Hga = Hgt - alpha*Htgx;
                 % If this "optimal" version is not in the correct position
-                % we should restart the loop.
-                if Hga < Hgas(max(betaIndex - 1, 1))
-                    fprintf("This Ixt is too small!");
+                % we should restart the loop a few times. However, this is
+                % only done for the (D)IB or Renyi-DIB cases.
+                if Hga < Hgas(max(betaIndex - 1, 1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
+                    fprintf("This Hga is too small, try again.\n");
                     L = Inf;
                     optimalLFound = false;
-                elseif Iyt < IbYs(max(betaIndex-1,1))
-                    fprintf('This Iyt is too small! Try the loop again.');
+                    suboptimalCount = suboptimalCount + 1;
+                elseif Iyt < IbYs(max(betaIndex-1,1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
+                    fprintf('This Iyt is too small! Try the loop again.\n');
                     L = Inf;
                     optimalLFound = false;
+                    suboptimalCount = suboptimalCount + 1;
                 end
+            end
+            
+            % If we have run this beta a few times and it has not
+            % converged, let's update it to be some random point between
+            % the previous and future beta values. We choose
+            % maxIterations / 5 because it means we try enough times for
+            % this to matter
+            if suboptimalCount >= (maxIterations / 5)
+                % Compute the previous beta value
+                previousBeta = Bs(max(betaIndex - 1,1));
+                % Do not allow Inf to be included, which is Bs(length(Bs))
+                nextBeta = Bs(min(betaIndex + 1, length(Bs) - 1));
+                % Sample beta from the uniform distribution between
+                % the previous and future beta values
+                beta = previousBeta + (nextBeta - previousBeta)*rand();
+                fprintf('Current beta is suboptimal too many times.\n');
+                fprintf('-- Randomly choosing new beta = %.2f --\n',beta);
+                % Update the Bs vector to use this beta and try again
+                Bs(betaIndex) = beta;
+                suboptimalCount = 0;
+                % Update the waitbar
+                waitbar(betaIndex / numBetas, bar, ...
+                    sprintf('Redoing bottleneck, new beta = %.2f\n (%d of %d)',...
+                        beta, betaIndex, numBetas));
             end
         end
         
