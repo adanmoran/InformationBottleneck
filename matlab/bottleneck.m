@@ -80,8 +80,16 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     % identically 1.
     Pygx = makeDistribution(Pxy ./ Px, 2);
     
-        % If beta is zero, all X values are compressed to one point
-    if beta == 0
+    % Decide if we should force beta = 0 to be a single point. This is only
+    % true when we are in the DIB, IB, or Renyi-DIB case (and no other
+    % time).
+    forceSingleton = alpha == 0; % DIB or Renyi-DIB
+    forceSingleton = forceSingleton || (alpha == 1 && gamma == 1); % IB
+    
+    % If beta is zero, all X values are compressed to one point if we are
+    % in one of the cases where we know it will be a singleton
+    % distribution.
+    if beta == 0 && forceSingleton
         % Assign a conditional probability of 1 to T = 1
         Qtgx = zeros(size(Pxy,1));
         Qtgx(:,1) = 1;
@@ -94,10 +102,11 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
         % Renyi entropy of a deterministic function is 0
         Ht = 0;
         Htgx = 0;
-        % L-functional value is 0 - beta*0 = 0
+        % L-functional value is 0 - alpha * 0 - beta*0 = 0
         L = 0;
         return;
-    % If beta is infinity, we must return T as equal to X
+    % If beta is infinity, we must return T as equal to X because I(T;Y)
+    % wins out over everything else.
     elseif beta == Inf
         % Probability of T given X is an identity
         Qtgx = eye(n);
