@@ -91,7 +91,7 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     end
     
     % Set the default max iterations for the optimization loop
-    maxIterations = 50;
+    maxIterations = 100;
     
     % Sort all beta values inputted so they are in order.
     betas = sort(betas);
@@ -525,11 +525,7 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
         % Compute an initial bottleneck position for this beta
         [~,Qt,L,Ixt,Iyt,Hgt,Htgx] = bottleneck(Pxy, beta, alpha, ...
                                                gamma, epsilon, debug);
-        
-        % Keep track of the current number of times we've run the
-        % bottleneck since the last optimal L, so as to stop at the max
-        % number of iterations
-        bottleneckIteration = 1;
+        Hga = Hgt - alpha*Htgx;
         
         % Flag to keep looking if the max number of iterations is not
         % reached
@@ -549,51 +545,34 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
         % course, we can skip the case where beta = 0 or beta = Inf
         while ~optimalLFound
             % Compute a new L value and new outputs
-            [~, newQt, newL, newIxt, newIyt, newHgt, newHtgx] = ...
-                bottleneck(Pxy, beta, alpha, gamma, epsilon, false);
+            [~, newQt, newL, newIxt, newIyt, newHga] = ...
+                optimalbottle(Pxy, gamma, alpha, beta, maxIterations, epsilon, true);
             
-            % If a new minimum L was found, reset the counter and keep
-            % going.
+            % If a new minimum L was found upon optimizing, update the
+            % outputs.
             if newL < L
                 % Update the "optimal" output variables
                 Qt = newQt;
                 L = newL;
                 Ixt = newIxt;
                 Iyt = newIyt;
-                Hgt = newHgt;
-                Htgx = newHtgx;
-                bottleneckIteration = 1;
-                
-                % Display output if requested.
-                if debug
-                    fprintf('-> Found new optimal L: %.16f\n',L);
-                end
+                Hga = newHga;
+            end
+            
+            % If this "optimal" version is not in the correct position
+            % we should restart the loop a few times. However, this is
+            % only done for the (D)IB or Renyi-DIB cases.
+            if Hga < Hgas(max(betaIndex - 1, 1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
+                fprintf("This Hga is too small, try again.\n");
+                suboptimalCount = suboptimalCount + 1;
+            elseif Iyt < IbYs(max(betaIndex-1,1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
+                fprintf('This Iyt is too small! Try the loop again.\n');
+                suboptimalCount = suboptimalCount + 1;
+            % Otherwise, this is the optimal position
             else
-                bottleneckIteration = bottleneckIteration + 1;
-            end
-            
-            % If we have reached our max allowable iterations, stop
-            % searching and use the current minimum.
-            if bottleneckIteration >= maxIterations
                 optimalLFound = true;
-                % Compute the Hga value
-                Hga = Hgt - alpha*Htgx;
-                % If this "optimal" version is not in the correct position
-                % we should restart the loop a few times. However, this is
-                % only done for the (D)IB or Renyi-DIB cases.
-                if Hga < Hgas(max(betaIndex - 1, 1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
-                    fprintf("This Hga is too small, try again.\n");
-                    L = Inf;
-                    optimalLFound = false;
-                    suboptimalCount = suboptimalCount + 1;
-                elseif Iyt < IbYs(max(betaIndex-1,1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
-                    fprintf('This Iyt is too small! Try the loop again.\n');
-                    L = Inf;
-                    optimalLFound = false;
-                    suboptimalCount = suboptimalCount + 1;
-                end
             end
-            
+
             % If we have run this beta a few times and it has not
             % converged, let's update it to be some random point between
             % the previous and future beta values. We choose
@@ -621,7 +600,7 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
         
         % Compute the H_gamma(T) - alpha*H(T|X) of this optimal
         % distribution
-        Hgas(betaIndex) = Hgt - alpha*Htgx;
+        Hgas(betaIndex) = Hga;
         
         % Compute the entropy of this optimal distribution
         Hs(betaIndex) = entropy(Qt);
