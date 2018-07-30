@@ -66,7 +66,7 @@ function [Qtgx, Qt, L, Ixt, Iyt, Hga] = optimalbottle(Pxy, ...
        % Run the bottleneck to compute a new L-value. Do not show the
        % debug output.
        [newQtgx, newQt, newL, newIxt, newIyt, newHgt, newHtgx] = ...
-           bottleneck(Pxy, beta, alpha, gamma, epsilon);
+           bottleneck(Pxy, beta, alpha, gamma, epsilon, false);
        
        % Determine if a new minimum was found
        if newL < L
