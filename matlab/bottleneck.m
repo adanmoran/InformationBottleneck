@@ -23,6 +23,10 @@
 % in ]0,Inf[. Deafult is 1, which results in Shannon-Entropy.
 % * epsilon (optional) = convergence parameter for the iteration of the
 % bottleneck. Must be positive non-zero. Default is 10^-8.
+% * debug (optional) = flag to print debug output. Default is false.
+% * initialQtgx (optional) = a matrix of size |X| x |T| which initialize
+% the conditional distribution q(t|x). If empty, the distribution is
+% initialized as a random matrix of size |T| = |X|. Default is [].
 %
 % Outputs:
 % * Qtgx = Conditional distribution of T given X
@@ -44,7 +48,12 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
                                                         alpha, ...
                                                         gamma, ...
                                                         epsilon, ...
-                                                        debug)
+                                                        debug, ...
+                                                        initialQtgx)
+    % Set defaults for 7th parameter
+    if nargin < 7
+        initialQtgx = [];
+    end
     % Set defaults for 6th parameter
     if nargin < 6
         debug = false;
@@ -63,6 +72,9 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     end
     
     % Validate all inputs
+    assert(size(initialQtgx,1) == 0 || ...
+           size(initialQtgx,1) == size(Pxy,1), ...
+           'Bottleneck: initialQtgx must be of size |X| x |T|.');
     assert(epsilon > 0, 'Bottleneck: Epsilon must be positive.');
     assert(gamma > 0 && gamma < Inf,...
         'Bottleneck: Gamma must be in ]0,Inf[');
@@ -129,7 +141,12 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     % that have decimal places as small as 10^-5. This is small, but not so
     % small that we cannot have a distribution that sums to identically 1
     % due to rounding errors.
-    Qtgx = makeDistribution(randi(100000, n, n), 2);
+    if isempty(initialQtgx)
+        Qtgx = makeDistribution(randi(100000, n, n), 2);
+    else
+        % Make sure initialQtgx is a distribution, just in case.
+        Qtgx = makeDistribution(initialQtgx,2);
+    end
     
     % Initialize q(t) based on q(t|x)
     Qt = updateQt(Qtgx,Px);
