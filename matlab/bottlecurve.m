@@ -563,7 +563,7 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
             % we should restart the loop a few times. However, this is
             % only done for the (D)IB or Renyi-DIB cases.
             if Hga < Hgas(max(betaIndex - 1, 1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
-                fprintf("This Hga is too small, try again.\n");
+                fprintf("This Hga is too small (%.4f < %.4f), try again.\n",Hga, Hgas(max(betaIndex-1,1)));
                 suboptimalCount = suboptimalCount + 1;
             elseif Iyt < IbYs(max(betaIndex-1,1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
                 fprintf('This Iyt is too small! Try the loop again.\n');
@@ -573,29 +573,29 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
                 optimalLFound = true;
             end
 
-            % If we have run this beta a few times and it has not
-            % converged, let's update it to be some random point between
-            % the previous and future beta values. We choose
-            % maxIterations / 5 because it means we try enough times for
-            % this to matter
-            if suboptimalCount >= (maxIterations / 5)
-                % Compute the previous beta value
-                previousBeta = Bs(max(betaIndex - 1,1));
-                % Do not allow Inf to be included, which is Bs(length(Bs))
-                nextBeta = Bs(min(betaIndex + 1, length(Bs) - 1));
-                % Sample beta from the uniform distribution between
-                % the previous and future beta values
-                beta = previousBeta + (nextBeta - previousBeta)*rand();
-                fprintf('Current beta is suboptimal too many times.\n');
-                fprintf('-- Randomly choosing new beta = %.2f --\n',beta);
-                % Update the Bs vector to use this beta and try again
-                Bs(betaIndex) = beta;
-                suboptimalCount = 0;
-                % Update the waitbar
-                waitbar(betaIndex / numBetas, bar, ...
-                    sprintf('Redoing bottleneck, new beta = %.2f\n (%d of %d)',...
-                        beta, betaIndex, numBetas));
-            end
+%             % If we have run this beta a few times and it has not
+%             % converged, let's update it to be some random point between
+%             % the previous and future beta values. We choose
+%             % maxIterations / 5 because it means we try enough times for
+%             % this to matter
+%             if suboptimalCount >= (maxIterations / 5)
+%                 % Compute the previous beta value
+%                 previousBeta = Bs(max(betaIndex - 1,1));
+%                 % Do not allow Inf to be included, which is Bs(length(Bs))
+%                 nextBeta = Bs(min(betaIndex + 1, length(Bs) - 1));
+%                 % Sample beta from the uniform distribution between
+%                 % the previous and future beta values
+%                 beta = previousBeta + (nextBeta - previousBeta)*rand();
+%                 fprintf('Current beta is suboptimal too many times.\n');
+%                 fprintf('-- Randomly choosing new beta = %.2f --\n',beta);
+%                 % Update the Bs vector to use this beta and try again
+%                 Bs(betaIndex) = beta;
+%                 suboptimalCount = 0;
+%                 % Update the waitbar
+%                 waitbar(betaIndex / numBetas, bar, ...
+%                     sprintf('Redoing bottleneck, new beta = %.2f\n (%d of %d)',...
+%                         beta, betaIndex, numBetas));
+%             end
         end
         
         % Compute the H_gamma(T) - alpha*H(T|X) of this optimal
