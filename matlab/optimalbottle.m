@@ -22,6 +22,8 @@
 % * epsilon (optional) = convergence parameter for the iteration of the
 % bottleneck. Must be positive non-zero. Default is 10^-8.
 % * debug (optional) = if true, print out the debug strings to the console.
+% * merge (optional) = if true, try merging clusters to produce a more
+% optimal point on the plane (DIB only). Default is true.
 %
 % Outputs:
 % * Qtgx = q(t|x), the mapping of X into T
@@ -36,7 +38,8 @@ function [Qtgx, Qt, L, Ixt, Iyt, Hga] = optimalbottle(Pxy, ...
                                                       beta, ...
                                                       iterations, ...
                                                       epsilon, ...
-                                                      debug)
+                                                      debug, ...
+                                                      merge)
     % Set default for 5th argument
     if nargin < 5
         iterations = 50;
@@ -45,9 +48,13 @@ function [Qtgx, Qt, L, Ixt, Iyt, Hga] = optimalbottle(Pxy, ...
     if nargin < 6
         epsilon = 10^-8;
     end
-    % Set defaults for final argument
+    % Set defaults for 7th argument
     if nargin < 7
         debug = false;
+    end
+    % Set defaults for the 8th argument
+    if nargin < 8
+        merge = true;
     end
     
     % Initialize L to Inf because we want all L values to be lower than
@@ -94,11 +101,102 @@ function [Qtgx, Qt, L, Ixt, Iyt, Hga] = optimalbottle(Pxy, ...
        % If we have reached our max allowable iterations, stop
        % searching and use the current minimum.
        if bottleneckIterations >= iterations
-           if debug
-               fprintf('---- Optimal L found: %.8f ----\n',L);
-           end
            optimized = true;
        end
+    end
+    
+    % If we are using the (Renyi-)DIB, we need to merge clusters to see if
+    % we get a lower L-value
+    if alpha == 0 && merge
+        % Keep track of whether merging clusters produced a better value,
+        % and always run the attempted merging of clusters at least once.
+        keepMerging = true;
+        fprintf('Merging clusters...\n');
+        % Merge clusters as long as any original merges produced a better
+        % result
+        while keepMerging
+
+            % Get the values allowed by T
+            T = 1:length(Qt);
+
+            % q(t) has a lot of zeros, let's find out which values of T are
+            % NOT zero probability/
+            NonZeroT = T(Qt ~= 0);
+    
+            % Now create unordered pairs of T values
+            [T1,T2] = meshgrid(NonZeroT,NonZeroT);
+            % These pairs are in a grid of ordered pairs. Take the lower
+            % triangular half of each to throw away these ordered values
+            % and only get unordered pairs. We also throw away the
+            % diagonals, since that corresponds to merging one row with
+            % itself (which is where T1 == T2)
+            mask = tril(T1 ~= T2);
+            T1 = T1(mask);
+            T2 = T2(mask);
+    
+            % Keep track of which distributions with clusters merged are
+            % better than previous ones.
+            minMergedQtgx = Qtgx;
+            minMergedQt = Qt;
+            minMergedL = L;
+            minMergedIxt = Ixt;
+            minMergedIyt = Iyt;
+            minMergedHga = Hga;
+            mergedIsBetter = false;
+            
+            % Iterate over all the unordered pairs and see if merging
+            % them reduces L.
+            for i = 1:length(T1)
+                % Merge the columns of q(t|x) as specified by which T's are
+                % to be merged in T1 and T2.
+                mergedCol = Qtgx(:,T1(i)) + Qtgx(:,T2(i));
+                % Set the merged q(t|x) by merging those columns of q(t|x)
+                mergedQtgx = Qtgx;
+                mergedQtgx(:,T1(i)) = mergedCol;
+                mergedQtgx(:,T2(i)) = zeros(length(mergedCol),1);
+                % Recompute the bottleneck from here. If the L is lower,
+                % store this value. We will end up using the one with the
+                % lowest L-value.
+                [mergedQtgx, mergedQt, mergedL, ...
+                    mergedIxt, mergedIyt, ...
+                    mergedHgt] = bottleneck(Pxy, beta, alpha, gamma,...
+                                            epsilon, false, mergedQtgx);
+                % Store the lowest L-value found as well as the matrix
+                if mergedL < minMergedL
+                    % Update the distributions to notify the output that we
+                    % should use a merged distribution, rather than an
+                    % unmerged distribution
+                    minMergedQtgx = mergedQtgx;
+                    minMergedQt = mergedQt;
+                    minMergedL = mergedL;
+                    minMergedIxt = mergedIxt;
+                    minMergedIyt = mergedIyt;
+                    minMergedHga = mergedHgt;
+                    % Flag to update the output
+                    mergedIsBetter = true;
+                end
+            end
+            % Update the output variables, and tell the loop to keep trying
+            % to merge clusters
+            if mergedIsBetter
+                fprintf('Chose to merge clusters!\n');
+                Qtgx = minMergedQtgx;
+                Qt = minMergedQt;
+                L = minMergedL;
+                Ixt = minMergedIxt;
+                Iyt = minMergedIyt;
+                Hga = minMergedHga;
+                keepMerging = true;
+            % Current q(t|x) is optimal, do not keep merging clusters
+            else
+                keepMerging = false;
+            end
+        end
+        fprintf('Finished merging clusters.\n');
+    end
+    % Display the output of the optimal L
+    if debug
+       fprintf('---- Optimal L found: %.8f ----\n',L);
     end
 end
     
