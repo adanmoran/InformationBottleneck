@@ -544,9 +544,10 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
         % Continue to run the bottleneck until we find an optimal L. Of
         % course, we can skip the case where beta = 0 or beta = Inf
         while ~optimalLFound
-            % Compute a new L value and new outputs
+            % Compute a new L value and new outputs.
             [~, newQt, newL, newIxt, newIyt, newHga] = ...
-                optimalbottle(Pxy, gamma, alpha, beta, maxIterations, epsilon, true);
+                optimalbottle(Pxy, gamma, alpha, beta, ...
+                              maxIterations, epsilon);
             
             % If a new minimum L was found upon optimizing, update the
             % outputs.
@@ -562,12 +563,17 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
             % If this "optimal" version is not in the correct position
             % we should restart the loop a few times. However, this is
             % only done for the (D)IB or Renyi-DIB cases.
-            if Hga < Hgas(max(betaIndex - 1, 1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
+            if Hga < (Hgas(max(betaIndex - 1, 1)) - epsilon) && ((alpha == 1 && gamma == 1))
                 fprintf("This Hga is too small (%.4f < %.4f), try again.\n",Hga, Hgas(max(betaIndex-1,1)));
                 suboptimalCount = suboptimalCount + 1;
-            elseif Iyt < IbYs(max(betaIndex-1,1)) && ((alpha == 1 && gamma == 1) || alpha == 0)
-                fprintf('This Iyt is too small! Try the loop again.\n');
+            elseif Iyt < (IbYs(max(betaIndex-1,1)) - epsilon) && ((alpha == 1 && gamma == 1))
+                fprintf('This Iyt is too small (%.4f < %.4f)! Try the loop again.\n', Iyt, IbYs(max(betaIndex-1,1)));
                 suboptimalCount = suboptimalCount + 1;
+            % If this "optimal" DIB version has a higher L-value than the
+            % previous one, we should try to recompute this again.
+            elseif alpha == 0 && L > (Hgas(max(betaIndex-1,1)) - Bs(max(betaIndex-1,1))*IbYs(max(betaIndex-1,1)) + epsilon)
+                fprintf('This L is greater than previous L (%.8f > %.8f)! Try again.\n',...
+                    L, (Hgas(max(betaIndex-1,1)) - Bs(max(betaIndex-1,1))*IbYs(max(betaIndex-1,1))));
             % Otherwise, this is the optimal position
             else
                 optimalLFound = true;
