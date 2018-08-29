@@ -38,11 +38,45 @@ end
 gammas = [0.1 0.5 1 1.5 2 5];
 
 % Set up our array of structs
-gmNonSymStruct = cell(size(gammas));
+if exist('gmNonSymData.mat','file')
+    load('gmNonSymData.mat');
+else
+    gmNonSymStruct = cell(size(gammas));
+end
 
 % Set the clustering parameters
 s = 1;
-M = 30;
+M = 25;
+
+% Compute the grid over which we will display the true distribution
+minima = transpose(min(gmNonSymPoints.points, [], 1)) - 2;
+maxima = transpose(max(gmNonSymPoints.points, [], 1)) + 2;
+axisInterpolation = minima + linspace(0,1,M).*(maxima - minima);
+axisCells = num2cell(axisInterpolation,2);
+[grid{:}] = ndgrid(axisCells{:});
+components = cellfun(@(axis) reshape(axis,[numel(axis) 1]), grid, ...
+    'UniformOutput', false);
+gridPoints = cat(2,components{:});
+
+% Display the points and the true distribution
+figure;
+scatter(gmNonSymPoints.points(:,1), gmNonSymPoints.points(:,2));
+hold on
+fcontour(@(x,y) gmNonSymPoints.gm.pdf([x y]), [min(minima) max(maxima)]);
+hold off
+title('True Contour Diagram: Non-Symmetric Gaussian Data');
+xlabel('x');
+ylabel('y');
+
+% Display the true pdf
+z = reshape(gmNonSymPoints.gm.pdf(gridPoints), size(grid{1}));
+% Show the mesh
+figure;
+mesh(grid{:},z);
+title('True PDF: Non-Symmetric Gaussian Data');
+xlabel('X');
+ylabel('Y');
+zlabel('Z');
 
 % Loop over all the gammas which have not been completed.
 i = 1;
