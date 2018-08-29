@@ -31,7 +31,11 @@ end
 gammas = [0.1 0.5 1 1.5 2 5];
 
 % Set up our array of structs
-lapStruct = cell(size(gammas));
+if exist('lapData.mat','file')
+    load('lapData.mat');
+else
+    lapStruct = cell(size(gammas));
+end
 
 % Set the clustering parameters
 s = 1;
@@ -75,7 +79,7 @@ for gamma = gammas
         fprintf('===================================\n');
         fprintf('* Will save into location %d\n',i);
         % Run the clustering on this gamma with the chosen beta
-        QS = bottlecluster(lapPoints.points,s,M,gamma);
+        QS = bottlecluster(lapPoints.points,s,M,gamma,2);
         QS.lm = lapPoints.lm;
         % Set the output structure to contain this struct
         lapStruct{i} = QS;
