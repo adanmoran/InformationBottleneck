@@ -72,7 +72,7 @@ ylabel('y');
 z = reshape(gmNonSymPoints.gm.pdf(gridPoints), size(grid{1}));
 % Show the mesh
 figure;
-mesh(grid{:},z);
+surf(grid{:},z);
 title('True PDF: Non-Symmetric Gaussian Data');
 xlabel('X');
 ylabel('Y');
