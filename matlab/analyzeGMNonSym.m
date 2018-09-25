@@ -162,8 +162,12 @@ for i = 1:size(gmNonSymStruct,2)
            resultStruct.gamma, resultStruct.kinkBeta));
     xlabel('X-Coordinate');
     ylabel('Y-Coordinate'); 
-
-    legend('DIB Partition', 'GM Partition', 'Clusters')
+    
+    if showPartition
+        legend('DIB Partition', 'GM Partition', 'Clusters')
+    else
+        legend('GM Partition', 'Clusters');
+    end
     hold off;
     
     % Compute the filename where we are saving the image
