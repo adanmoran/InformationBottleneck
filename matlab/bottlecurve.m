@@ -50,7 +50,9 @@
 % common to all information planes.
 % * Bs = beta values that were found which partition the curve into N
 % points.
-function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
+% * Qt = A matrix of size |T| x |Bs|. Every column of this matrix is the
+% distribution q(T) for a beta in Bs.
+function [Hga,Ht,Ixt,Iyt,Bs,Qt] = bottlecurve( Pxy,...
                                             N,...
                                             alpha,...
                                             gamma,...
@@ -129,7 +131,7 @@ function [Hga,Ht,Ixt,Iyt,Bs] = bottlecurve( Pxy,...
     % Hs is entropies H(T), Hgas is the generalized entropy
     % H_gamma(T) - alpha H(T|X), IbXs is the mutual information I(X;T),
     % and IbYs is the mutual information I(T;Y).
-    [Hga,Ht,Ixt,Iyt] = getCurvePoints(Pxy, Bs, alpha,...
+    [Hga,Ht,Ixt,Iyt,Qt] = getCurvePoints(Pxy, Bs, alpha,...
                                          gamma, epsilon, maxIterations);
                                      
 %% TODO: Handle all input conditions for display and plot the curves.
@@ -488,7 +490,8 @@ end
 % * Hs = entropy values for T, H(T)
 % * IbXs = mutual information I(X;T)
 % * IbYs = mutual information I(T;Y)
-function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
+% * Qts = distributions q(T) in a matrix
+function [Hgas,Hs,IbXs,IbYs,Qts] = getCurvePoints(Pxy, Bs, alpha, ...
                                               gamma,epsilon,maxIterations)
     % TODO: Make this an input
     debug = true;
@@ -502,6 +505,7 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
     Hs = zeros(1,numBetas);
     IbXs = zeros(1,numBetas);
     IbYs = zeros(1,numBetas);
+    Qts = zeros(size(Pxy,1), numBetas);
     
     % Initialize a waitbar to display output to the user
     bar = waitbar(0,'','Name','Compute Curve Points');
@@ -615,6 +619,9 @@ function [Hgas,Hs,IbXs,IbYs] = getCurvePoints(Pxy, Bs, alpha, ...
         % variables
         IbXs(betaIndex) = Ixt;
         IbYs(betaIndex) = Iyt;
+        
+        % Insert the distribution into its output variable location
+        Qts(:,betaIndex) = Qt;
     end
     
     % Close the waitbar
