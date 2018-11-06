@@ -8,10 +8,17 @@ N = 10;
 delta = 1/40;
 epsilon = 10^-8;
 display = 'none';
-Bs = [0 0.25 0.5 0.75 1 2 3 4 5 6 7 8 9 10 ...
-      10.1 10.5 11 12 13 14 15 16 17 18 19 20 ...
+Bs = [0 0.25 0.5 0.75 1 2 3 4 5 6 7 8 10 ...
+      10.5 11 12 13 14 15 16 17 18 19 20 ...
       30 40 50 100 Inf];
-gamma = 0.5;
+gamma = 0.8;
+
+% Get gamma as a string, replace decimal places with underscores
+strGamma = replace(num2str(gamma),'.','_');
+% Folder where we will save images
+folder = '../../images/rdib/';
+% Flag to choose whether these files are saved.
+save = true;
 
 % Compute the IB curve
 [~,IB.Ht,IB.Ixt,IB.Iyt,IB.Bs,IB.Qt] = bottlecurve(...
@@ -113,3 +120,25 @@ hold off;
 % outline
 legend({'IB','DIB','RDIB','I(X;Y)',sprintf('H_{%.2f}(X)',gamma)},'Location','Southeast');
 legend('boxoff');
+
+% Save the files
+ibfile = 'ib_plane_gamma_';
+ibfile = strcat(ibfile, strGamma);
+ibpathfig = strcat(folder, ibfile, '.fig');
+ibpathpng = strcat(folder, ibfile, '.png');
+saveas(ibf, ibpathfig);
+saveas(ibf, ibpathpng);
+
+dibfile = 'dib_plane_gamma_';
+dibfile = strcat(dibfile, strGamma);
+dibpathfig = strcat(folder, dibfile, '.fig');
+dibpathpng = strcat(folder, dibfile, '.png');
+saveas(dibf, dibpathfig);
+saveas(dibf, dibpathpng);
+
+rdibfile = 'rdib_plane_gamma_';
+rdibfile = strcat(rdibfile, strGamma);
+rdibpathfig = strcat(folder, rdibfile, '.fig');
+rdibpathpng = strcat(folder, rdibfile, '.png');
+saveas(rdibf, rdibpathfig);
+saveas(rdibf, rdibpathpng);
