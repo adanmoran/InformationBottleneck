@@ -9,7 +9,7 @@
 load('lapData.mat');
 
 % Folder where we will save images
-folder = '../../images/clustering/laplacian/same_beta/';
+folder = '../../images/clustering/laplacian/2019_04_kink_beta/';
 
 % Set the distribution info (gm, points), which is the same for all of them
 lm = lapStruct{1}.lm;
@@ -25,7 +25,7 @@ truePartition = cat(1,firstCluster,secondCluster);
 % lapStruct object when plotting graphs. Otherwise, we use the selected
 % input beta for ALL graphs (and recompute q(c|i), q(c|x), etc. without
 % overwriting the old ones)
-useInputBeta = true;
+useInputBeta = false;
 inputBeta = 2.0;
 % If this is true, we will allow the user to redo the kink beta. Note that
 % useInputBeta will take priority over this (i.e. if useInputBeta is true,
@@ -155,11 +155,15 @@ for i = 1:size(lapStruct,2)
     % We cannot cluster using the LM distribution with a .cluster()
     % function, since it doesn't exist. Thus, we can't show a dashed line
     % for the laplacian contour. Instead, we draw big rings around which
-    % points should be together.
-    gscatter(points(:,1),points(:,2),truePartition,'','oo',10);
+    % points should be together, with red being the first group and cyan
+    % being the second group.
+    gscatter(points(:,1),points(:,2),truePartition,'rc','oo',5);
     
-    % Show the points themselves with their clustering according to DIB.
-    gscatter(points(:,1),points(:,2),resultStruct.c)
+    % Show the points themselves with their clustering according to DIB. We
+    % always make the first group red and the second group cyan, to match
+    % with the rings above. If there are more groups they will be coloured
+    % according to the string specified below, up to 6 clusters max.
+    gscatter(points(:,1),points(:,2),resultStruct.c,'rcgbky')
     
     % Set the title and labels
     title(sprintf('DIB vs Laplacian Partition, gamma = %.2f, kinkBeta = %.2f',...
@@ -170,7 +174,7 @@ for i = 1:size(lapStruct,2)
     if showPartition
         legend('DIB Partition', 'LM Partition', 'Clusters')
     else
-        legend('','LM partition', 'Clusters');
+        legend('','LM partition', 'R-DIB Clusters');
     end
     hold off;
     
@@ -216,6 +220,8 @@ for i = 1:size(lapStruct,2)
         str = sprintf('True partition of %d points from Laplacian at (0,0) + (4,0)',...
             size(points,1));
         title(str);
+        % For this set of points, we only need the axes specified here
+        xlim([-4 8]); ylim([-4 4]);
         
         % Show the estimated pdf
         estimatedFig = figure;
