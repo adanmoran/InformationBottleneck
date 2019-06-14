@@ -12,7 +12,7 @@
 % used to compute the number of points in p(i,x). This matrix will be of
 % size N x M^n and is fed into the (Renyi-)DIB
 % * gamma (optional) = Renyi parameter for the bottleneck curve. Must be in
-% ]0,Inf[. Default is 1.
+% [0,Inf[. Default is 1.
 % * beta (optional) = beta value which we use to compute the cluster after
 % the DIB is computed. This is TEMPORARY as we should be able to
 % automatically search for the partition and optimal beta (where there is
@@ -54,7 +54,7 @@ function QStruct = bottlecluster(points,s,M,gamma,beta)
     % Validate all parameters.
     assert(s > 0, 'Cluster: s must be positive.');
     assert(M > 0, 'Cluster: M must be positive.');
-    assert(gamma > 0 && gamma < Inf, 'Cluster: gamma must be in ]0,Inf[');
+    assert(gamma >= 0 && gamma < Inf, 'Cluster: gamma must be in [0,Inf[');
     
     % Get the number of points
     N = size(points,1);

@@ -3,7 +3,7 @@
 % This is generalzed to work for the Renyi entropy of parameter gamma.
 %
 % That is:
-% * gamma = 0 -> H(X) = log|X|
+% * gamma = 0 -> H(X) = log|{x in X: p(x) > 0}|
 % * gamma in ]0,1[ U ]1, Inf[ -> H(X) = 1/(1-gamma) log(sum_x p(x)^gamma)
 % * gamma = 1 -> H(X) = -sum_x p(x)log(p(x)) i.e. Shannon's Entropy
 % * gamma = Inf -> H(X) = -log(max(p(x)))
@@ -32,7 +32,7 @@ function H = entropy(Px, gamma)
         
     % Compute the Renyi Entropy based on each possible case
     if gamma == 0
-        H = log2(size(Px,1)*size(Px,2));
+        H = log2(size(X,1)*size(X,2));
         return;
     elseif gamma == Inf
         H = -log2(max(X));

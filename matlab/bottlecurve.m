@@ -24,7 +24,7 @@
 % * alpha (optional) = tradeoff parameter for the conditional entropy given
 % by H(T|X). Must be in [0,Inf[. Default is 1.
 % * gamma (optional) = parameter which chooses the Renyi entropy. Must be
-% in ]0,Inf[. Deafult is 1, which results in Shannon-Entropy.
+% in [0,Inf[. Deafult is 1, which results in Shannon-Entropy.
 % * delta (optional) = for a fixed beta's Hga value and a partition's Hga
 % value, this beta will be optimized if |beta_Hga - partition_Hga| < delta.
 % Must be positive and non-zero. Default is 1 / (4N).
@@ -246,8 +246,8 @@ function validate(N, alpha, gamma, delta, epsilon, display, betas)
     assert(N > 0, "BottleCurve: N must be positive.");
     assert(alpha >= 0 && alpha < Inf, ...
         "BottleCurve: alpha must be in [0,Inf[");
-    assert(gamma > 0 && gamma < Inf, ...
-        "BottleCurve: gamma must be in ]0,Inf[");
+    assert(gamma >= 0 && gamma < Inf, ...
+        "BottleCurve: gamma must be in [0,Inf[");
     assert(delta > 0, "BottleCurve: delta must be positive non-zero.");
     assert(epsilon > 0, "BottleCurve: epsilon must be positive non-zero.");
     

@@ -20,7 +20,7 @@
 % * alpha (optional) = tradeoff parameter for the conditional entropy given
 % by H(T|X). Must be in [0,Inf[. Default is 1.
 % * gamma (optional) = parameter which chooses the Renyi entropy. Must be
-% in ]0,Inf[. Deafult is 1, which results in Shannon-Entropy.
+% in [0,Inf[. Deafult is 1, which results in Shannon-Entropy.
 % * epsilon (optional) = convergence parameter for the iteration of the
 % bottleneck. Must be positive non-zero. Default is 10^-8.
 % * debug (optional) = flag to print debug output. Default is false.
@@ -75,8 +75,8 @@ function [Qtgx, Qt, L, Ixt, Iyt, Ht, Htgx] = bottleneck(Pxy, ...
     assert(size(initialQtgx,1) == 0 || ...
            size(initialQtgx,1) == size(Pxy,1), ...
            'Bottleneck: initialQtgx must be of size |X| x |T|.');
-    assert(epsilon > 0, 'Bottleneck: Epsilon must be positive.');
-    assert(gamma > 0 && gamma < Inf,...
+    assert(epsilon > 0, 'Bottleneck: Epsilon must be in [0,Inf[.');
+    assert(gamma >= 0 && gamma < Inf,...
         'Bottleneck: Gamma must be in ]0,Inf[');
     assert(alpha >= 0 && alpha < Inf, ...
         'Bottleneck: Alpha must be in [0,Inf[');

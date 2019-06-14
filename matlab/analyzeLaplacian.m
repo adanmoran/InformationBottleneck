@@ -36,6 +36,9 @@ redoKinkBeta = false;
 % colour).
 showPartition = false;
 
+% Store whether the data was changed at all.
+changed = false;
+
 % Loop through each Renyi-DIB and plot the results of the clustering for
 % the kinked beta
 for i = 1:size(lapStruct,2)
